@@ -1,0 +1,23 @@
+[project]
+name = "mit-project-banking"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Leonel481", email = "leonel.aliaga.v@gmail.com"},
+    {name = "Carlos Villanueva", email = "name@gmail.com"},
+    {name = "Franco Yngunza", email = "name@gmail.com"},
+    {name = "Bernard Yapo", email = "name@gmail.com"},
+]
+license = "MIT"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+]
+
+[tool.poetry]
+packages = [{include = "mit_project_banking", from = "src"}]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
