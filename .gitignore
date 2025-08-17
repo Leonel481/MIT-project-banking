@@ -3,3 +3,4 @@
 venv/
 env/
 Data/Base.csv
+Notebooks/EDA-data.ipynb
