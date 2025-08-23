@@ -20,9 +20,11 @@ Pendiente
 
 ## Estructura del repositorio
 
+Evitar subir arhicvos pesados. El dataset Base.csv no debe subirse al repo
+
 ```bash
 MIT-PROJECT-BANKING
-├── Data/                  # Diccionario de datos y datasets (no versionados)
+├── Data/                  # Diccionario de datos. (no versionados)
 │   └── Diccionario.xlsx
 ├── Notebooks/             # Notebooks de EDA y experimentación
 │   ├── notebook1.ipynb
