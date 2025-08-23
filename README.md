@@ -46,7 +46,7 @@ Dentro de la carpeta notebooks guardar los notebooks que se usan para EDA, exper
 git clone https://github.com/Leonel481/MIT-project-banking.git
 ```
 
-2. Cuando se genere un nuevo archivo subir los cambios al repositorio
+2. Cuando se genere un nuevo archivo o se modifique un archivo subir los cambios al repositorio
 
 ```bash
 # 1. Verificar qué archivos cambiaron
