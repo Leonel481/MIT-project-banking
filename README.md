@@ -19,8 +19,8 @@ Gestión de dependencias y entorno reproducible con Poetry.
 Pendiente
 
 ## Estructura del repositorio
-'''
-bash
+
+```bash
 MIT-PROJECT-BANKING
 ├── Data/                  # Diccionario de datos y datasets (no versionados)
 │   └── Diccionario.xlsx
@@ -33,22 +33,20 @@ MIT-PROJECT-BANKING
 ├── pyproject.toml          # Definición de dependencias y configuración del proyecto
 ├── poetry.lock             # Archivo de bloqueo de dependencias (Poetry)
 └── README.md               # Documentación del proyecto
-'''
+```
 Dentro de la carpeta notebooks guardar los notebooks que se usan para EDA, experimentos.
 
 ## INSTALACION Y CONFIGURACION
 
 1. Clonar repositorio ya sea en local con jupyter o en Colab
 
-'''
-bash
+```bash
 git clone https://github.com/Leonel481/MIT-project-banking.git
-'''
+```
 
 2. Cuando se genere un nuevo archivo subir los cambios al repositorio
 
-'''
-bash
+```bash
 # 1. Verificar qué archivos cambiaron
 git status
 
@@ -60,4 +58,4 @@ git commit -m "Ejemplo Mensaje: feat: agregar notebook de EDA inicial"
 
 # 4. Enviar los cambios al repositorio en GitHub
 git push origin main
-'''
+```
