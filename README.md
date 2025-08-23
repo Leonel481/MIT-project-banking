@@ -19,7 +19,8 @@ Gestión de dependencias y entorno reproducible con Poetry.
 Pendiente
 
 ## Estructura del repositorio
-
+'''
+bash
 MIT-PROJECT-BANKING
 ├── Data/                  # Diccionario de datos y datasets (no versionados)
 │   └── Diccionario.xlsx
@@ -32,7 +33,7 @@ MIT-PROJECT-BANKING
 ├── pyproject.toml          # Definición de dependencias y configuración del proyecto
 ├── poetry.lock             # Archivo de bloqueo de dependencias (Poetry)
 └── README.md               # Documentación del proyecto
-
+'''
 Dentro de la carpeta notebooks guardar los notebooks que se usan para EDA, experimentos.
 
 ## INSTALACION Y CONFIGURACION
