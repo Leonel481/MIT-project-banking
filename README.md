@@ -59,5 +59,5 @@ git add .
 git commit -m "Ejemplo Mensaje: feat: agregar notebook de EDA inicial"
 
 # 4. Enviar los cambios al repositorio en GitHub
-git push origin main
+git push
 ```
