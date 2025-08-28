@@ -4,3 +4,9 @@ venv/
 env/
 Data/Base.csv
 Notebooks/EDA-data.ipynb
+
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/.terraform.lock.hcl
+terraform/account_service/
