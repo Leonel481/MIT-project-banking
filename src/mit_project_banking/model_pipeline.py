@@ -49,6 +49,7 @@ def split_data(
 ):
     import pandas as pd
     from sklearn.model_selection import train_test_split
+    import os
 
     # Cargar los datos procesados
     data = pd.read_csv(processed_data_path.path)
@@ -58,6 +59,10 @@ def split_data(
     val, test = train_test_split(val_test, test_size=0.5, random_state=42)
 
     # Guardar los conjuntos de datos
+    os.makedirs(train_data_path.path, exist_ok=True)
+    os.makedirs(val_data_path.path, exist_ok=True)
+    os.makedirs(test_data_path.path, exist_ok=True)
+
     train_data_path = train_data_path.path + "/train_data.csv"
     val_data_path = val_data_path.path + "/val_data.csv"
     test_data_path = test_data_path.path + "/test_data.csv"
@@ -79,6 +84,7 @@ def train_models(
     from xgboost import XGBClassifier
     from lightgbm import LGBMClassifier
     import joblib
+    import os
 
     # Cargar los datos de entrenamiento
     data = pd.read_csv(train_data_path.path)
@@ -122,11 +128,13 @@ def train_models(
         trained_models[name] = model
 
     # Guardar los modelos y el encoder
-    models_path.path = models_path.path + "/trained_models.joblib"
-    encode_path.path = encode_path.path + "/encoder.joblib"
+    os.makedirs(models_path.path, exist_ok=True)
+    os.makedirs(encode_path.path, exist_ok=True)
+    models_path = models_path.path + "/trained_models.joblib"
+    encode_path = encode_path.path + "/encoder.joblib"
 
-    joblib.dump(trained_models, models_path.path)
-    joblib.dump(encoder, encode_path.path)
+    joblib.dump(trained_models, models_path)
+    joblib.dump(encoder, encode_path)
 
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 def evaluate_models(
