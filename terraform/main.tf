@@ -63,6 +63,9 @@ resource "google_project_iam_member" "team_members_iam" {
   ]
 }
 
+
+
+
 #------------------------------------------------------------
 #--------- Vertex AI ----------------------------------------
 #------------------------------------------------------------
@@ -112,6 +115,20 @@ resource "google_project_iam_member" "metric_writer" {
   role    = "roles/monitoring.metricWriter"
   member  = "serviceAccount:${google_service_account.workbench_sa.email}"
   depends_on = [google_service_account.workbench_sa]
+}
+
+resource "google_project_iam_member" "workbench_sa_user" {
+  project = var.gcp_project_id
+  role    = "roles/iam.serviceAccountUser"
+  member  = "serviceAccount:${google_service_account.workbench_sa.email}"
+  depends_on = [google_service_account.workbench_sa]
+}
+
+resource "google_service_account_iam_member" "workbench_sa_user_access" {
+  for_each           = toset(var.team_members_emails)
+  service_account_id = google_service_account.workbench_sa.id
+  role               = "roles/iam.serviceAccountUser"
+  member             = "user:${each.key}"
 }
 
 # Crea una instancia de Vertex AI Workbench
