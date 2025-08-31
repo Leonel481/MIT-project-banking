@@ -10,6 +10,7 @@ def load_process_data(
 ):
     import pandas as pd
     import numpy as np
+    import os
 
     # Cargar los datos
     data = pd.read_csv(raw_data_path)
@@ -33,6 +34,7 @@ def load_process_data(
     data = data.drop(columns = ['device_fraud_count','month','prev_address_months_count','intended_balcon_amount', 'source'])
 
     # Guardar los datos procesados
+    os.makedirs(processed_data_path.path, exist_ok=True)
     data_file_path = f"{processed_data_path.path}/processed_data.csv"
     data.to_csv(data_file_path, index=False)
     print(f"Datos procesados guardados en: {data_file_path}")
