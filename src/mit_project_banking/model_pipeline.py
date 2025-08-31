@@ -270,3 +270,5 @@ if __name__ == '__main__':
             'model_display_name': 'fraud_detection_model'
         }
     )
+
+    job.run()
