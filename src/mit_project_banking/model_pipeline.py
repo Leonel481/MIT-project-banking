@@ -30,7 +30,7 @@ def load_process_data(
     data['prev_bank_months_count'] = np.where(data['bank_months_count'] <=0, 0, 1)
     data['income_risk_score'] = data['income']*data['credit_risk_score']
 
-    df = df.drop(columns = ['device_fraud_count','month','prev_address_months_count','intended_balcon_amount', 'source'])
+    data = data.drop(columns = ['device_fraud_count','month','prev_address_months_count','intended_balcon_amount', 'source'])
 
     # Guardar los datos procesados
     processed_data_path.path = processed_data_path.path + "/processed_data.csv"
