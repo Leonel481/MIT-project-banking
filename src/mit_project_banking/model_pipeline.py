@@ -33,8 +33,10 @@ def load_process_data(
     data = data.drop(columns = ['device_fraud_count','month','prev_address_months_count','intended_balcon_amount', 'source'])
 
     # Guardar los datos procesados
-    processed_data_path.path = processed_data_path.path + "/processed_data.csv"
-    data.to_csv(processed_data_path, index=False)
+    data_file_path = f"{processed_data_path.path}/processed_data.csv"
+    data.to_csv(data_file_path, index=False)
+    print(f"Datos procesados guardados en: {data_file_path}")
+
 
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 def split_data(
@@ -54,9 +56,9 @@ def split_data(
     val, test = train_test_split(val_test, test_size=0.5, random_state=42)
 
     # Guardar los conjuntos de datos
-    train_data_path.path = train_data_path.path + "/train_data.csv"
-    val_data_path.path = val_data_path.path + "/val_data.csv"
-    test_data_path.path = test_data_path.path + "/test_data.csv"
+    train_data_path = train_data_path.path + "/train_data.csv"
+    val_data_path = val_data_path.path + "/val_data.csv"
+    test_data_path = test_data_path.path + "/test_data.csv"
 
     train.to_csv(train_data_path, index=False)
     val.to_csv(val_data_path, index=False)
