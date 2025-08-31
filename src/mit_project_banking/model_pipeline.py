@@ -34,7 +34,7 @@ def load_process_data(
 
     # Guardar los datos procesados
     processed_data_path.path = processed_data_path.path + "/processed_data.csv"
-    data.to_csv(processed_data_path.path, index=False)
+    data.to_csv(processed_data_path, index=False)
 
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 def split_data(
@@ -58,9 +58,9 @@ def split_data(
     val_data_path.path = val_data_path.path + "/val_data.csv"
     test_data_path.path = test_data_path.path + "/test_data.csv"
 
-    train.to_csv(train_data_path.path, index=False)
-    val.to_csv(val_data_path.path, index=False)
-    test.to_csv(test_data_path.path, index=False)
+    train.to_csv(train_data_path, index=False)
+    val.to_csv(val_data_path, index=False)
+    test.to_csv(test_data_path, index=False)
 
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 def train_models(
