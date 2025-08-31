@@ -52,7 +52,7 @@ def split_data(
     import os
 
     # Cargar los datos procesados
-    data = pd.read_csv(processed_data_path.path)
+    data = pd.read_csv(f"{processed_data_path.path}/processed_data.csv")
 
     # Diividir los datos en train, validation y test
     train, val_test = train_test_split(data, test_size=0.2, random_state=42)
@@ -87,7 +87,7 @@ def train_models(
     import os
 
     # Cargar los datos de entrenamiento
-    data = pd.read_csv(train_data_path.path)
+    data = pd.read_csv(f'{train_data_path.path}/train_data.csv')
 
     # Crear encoder, separar características y etiqueta
     cat_features = ['payment_type','employment_status','housing_status','device_os']
@@ -151,7 +151,7 @@ def evaluate_models(
     import json
 
     # Cargar los datos de validación
-    data = pd.read_csv(val_data_path.path)
+    data = pd.read_csv(f'{val_data_path.path}/val_data.csv')
 
     # Cargar los modelos y el encoder
     trained_models = joblib.load(models_path.path)
