@@ -219,45 +219,28 @@ def upload_model_to_vertex(
 )
 def pipeline(
     raw_data_path: str,
-    processed_data_path: str,
-    train_data_path: str,
-    val_data_path: str,
-    test_data_path: str,
-    models_path: str,
-    encode_path: str,
-    best_model_path: str,
-    metrics_path: str,
     model_display_name: str = 'fraud_detection_model'
 ):
     load_process_task = load_process_data(
         raw_data_path=raw_data_path,
-        processed_data_path=processed_data_path
     )
 
     split_data_task = split_data(
         processed_data_path=load_process_task.outputs['processed_data_path'],
-        train_data_path=train_data_path,
-        val_data_path=val_data_path,
-        test_data_path=test_data_path
     )
 
     train_models_task = train_models(
         train_data_path=split_data_task.outputs['train_data_path'],
-        models_path=models_path,
-        encode_path=encode_path
     )
 
     evaluate_models_task = evaluate_models(
         val_data_path=split_data_task.outputs['val_data_path'],
         models_path=train_models_task.outputs['models_path'],
         encode_path=train_models_task.outputs['encode_path'],
-        best_model_path=best_model_path,
-        metrics_path=metrics_path
     )
 
     upload_model_task = upload_model_to_vertex(
         best_model_path=evaluate_models_task.outputs['best_model_path'],
-        metrics_path=evaluate_models_task.outputs['metrics_path'],
         model_display_name=model_display_name
     )
 
@@ -284,14 +267,6 @@ if __name__ == '__main__':
         pipeline_root=PIPELINE_ROOT,
         parameter_values={
             'raw_data_path': INPUT_DATA_URI,
-            'processed_data_path': f'{GCS_BUCKET}/data/processed_data',
-            'train_data_path': f'{GCS_BUCKET}/data/train_data',
-            'val_data_path': f'{GCS_BUCKET}/data/val_data',
-            'test_data_path': f'{GCS_BUCKET}/data/test_data',
-            'models_path': f'{GCS_BUCKET}/models',
-            'encode_path': f'{GCS_BUCKET}/encoder',
-            'best_model_path': f'{GCS_BUCKET}/best_model',
-            'metrics_path': f'{GCS_BUCKET}/metrics',
             'model_display_name': 'fraud_detection_model'
         }
     )
