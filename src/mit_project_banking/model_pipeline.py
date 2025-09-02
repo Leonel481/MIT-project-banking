@@ -294,9 +294,11 @@ def upload_model_to_vertex(
         serving_container_image_uri='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest'
     )
 
-    for k, v in metrics.items():
-        aiplatform.log_metrics(k, v)
+    # for k, v in metrics.items():
+    #     aiplatform.log_metrics(k, v)
     
+    aiplatform.log_metrics(metrics)
+
     aiplatform.end_run()
 
     print(f'Modelo subido a Vertex AI con ID: {artifact.resource_name}')
