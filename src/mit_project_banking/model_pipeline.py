@@ -236,7 +236,7 @@ def evaluate_models(
     y_pred_proba = best_model.predict_proba(X_val)[:, 1]
     fpr, tpr, thresholds = roc_curve(y_val, y_pred_proba)
 
-    best_model_metrics_models.log_roc_auc(
+    best_model_metrics_models.log_roc_curve(
         fpr=fpr.tolist(),
         tpr=tpr.tolist(),
         thresholds=thresholds.tolist()
