@@ -257,7 +257,11 @@ def evaluate_models(
     markdown_table += "|--------|----------|-----------|--------|----------|---------|\n"
     for model, metrics in all_metrics.items():
         markdown_table += f"| {model} | {metrics['accuracy']:.4f} | {metrics['precision']:.4f} | {metrics['recall']:.4f} | {metrics['f1_score']:.4f} | {metrics['roc_auc']:.4f} |\n"
-    models_metrics.markdown = markdown_table
+    
+    os.makedirs(models_metrics.path, exist_ok=True)
+    markdown_path = os.path.join(models_metrics.path, "markdown.md")
+    with open(markdown_path, "w") as f:
+        f.write(markdown_table)
 
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 def upload_model_to_vertex(
