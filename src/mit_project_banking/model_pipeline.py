@@ -154,8 +154,8 @@ def evaluate_models(
     data = pd.read_csv(f'{val_data_path.path}/val_data.csv')
 
     # Cargar los modelos y el encoder
-    trained_models = joblib.load(models_path.path)
-    encoder = joblib.load(encode_path.path)
+    trained_models = joblib.load(f"{models_path.path}/trained_models.joblib")
+    encoder = joblib.load(f"{encode_path.path}/encoder.joblib")
 
     # Preparar los datos de validación
     cat_features = ['payment_type','employment_status','housing_status','device_os']
@@ -196,7 +196,6 @@ def evaluate_models(
     best_model_metrics = all_metrics[best_model_name]
 
     metrics_path = metrics_path.path + "/model_metrics.txt" 
-
     best_model_path = best_model_path.path + f"/best_model_{best_model_name}.joblib"
     best_model_metrics_path = best_model_metrics_path.path + f"/best_model_{best_model_name}_metrics.json"
 
