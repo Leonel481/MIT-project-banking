@@ -147,6 +147,7 @@ def evaluate_models(
     best_model_metrics_models: Output[ClassificationMetrics]
 ):
     import pandas as pd
+    import numpy as np
     from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, roc_curve
     import joblib
     import json
@@ -221,11 +222,11 @@ def evaluate_models(
 
     y_pred_best = best_model.predict(X_val)
     cm = confusion_matrix(y_val, y_pred_best)
-
-    confusion_matrix_data = []
-    for i, row in enumerate(cm):
-        row_dict = {"label": labels[i], "row_metrics": [{"label": labels[j], "value": int(val)} for j, val in enumerate(row)]}
-        confusion_matrix_data.append(row_dict)
+    confusion_matrix_data = cm.tolist()
+    # confusion_matrix_data = []
+    # for i, row in enumerate(cm):
+    #     row_dict = {"label": labels[i], "row_metrics": [{"label": labels[j], "value": int(val)} for j, val in enumerate(row)]}
+    #     confusion_matrix_data.append(row_dict)
 
     best_model_metrics_models.log_confusion_matrix(
         categories=labels,
@@ -237,10 +238,14 @@ def evaluate_models(
     fpr, tpr, thresholds = roc_curve(y_val, y_pred_proba)
 
     N_points = 200
+    fpr = np.nan_to_num(fpr[:N_points], nan=0.0, posinf=1.0, neginf=0.0)
+    tpr = np.nan_to_num(tpr[:N_points], nan=0.0, posinf=1.0, neginf=0.0)
+    thresholds = np.nan_to_num(thresholds[:N_points], nan=0.0, posinf=1.0, neginf=0.0)
+
     best_model_metrics_models.log_roc_curve(
-        fpr=fpr.tolist()[:N_points],
-        tpr=tpr.tolist()[:N_points],
-        threshold=thresholds.tolist()[:N_points]
+        fpr=fpr.tolist(),
+        tpr=tpr.tolist(),
+        threshold=thresholds.tolist()
     )
 
 
