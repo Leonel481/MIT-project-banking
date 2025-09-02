@@ -293,7 +293,7 @@ def upload_model_to_vertex(
     )
 
     for k, v in metrics.items():
-        aiplatform.log_metric(k, v)
+        aiplatform.log_metrics(k, v)
     
     aiplatform.end_run()
 
