@@ -239,7 +239,7 @@ def evaluate_models(
     best_model_metrics_models.log_roc_curve(
         fpr=fpr.tolist(),
         tpr=tpr.tolist(),
-        thresholds=thresholds.tolist()
+        threshold=thresholds.tolist()
     )
 
 
