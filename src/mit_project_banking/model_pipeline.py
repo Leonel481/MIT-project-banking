@@ -1,7 +1,7 @@
 import google.cloud.aiplatform as aiplatform
 import kfp
 from kfp import compiler, dsl
-from kfp.dsl import Artifact, Dataset, Input, Metrics, Model, Output, component, ClassificationMetrics
+from kfp.dsl import Artifact, Dataset, Input, Metrics, Model, Output, component, ClassificationMetrics, Markdown
 
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 def load_process_data(
@@ -143,6 +143,7 @@ def evaluate_models(
     encode_path: Input[Model],
     best_model_path: Output[Model],
     metrics_path: Output[Metrics],
+    models_metrics: Output[Markdown],
     best_model_metrics_path: Output[Metrics],
     best_model_metrics_models: Output[ClassificationMetrics]
 ):
@@ -251,13 +252,19 @@ def evaluate_models(
         threshold=thresholds.tolist()
     )
 
+    # Metricas in Markdown
+    markdown_table = "| Modelo | Accuracy | Precision | Recall | F1 Score | ROC AUC |\n"
+    markdown_table += "|--------|----------|-----------|--------|----------|---------|\n"
+    for model, metrics in all_metrics.items():
+        markdown_table += f"| {model} | {metrics['accuracy']:.4f} | {metrics['precision']:.4f} | {metrics['recall']:.4f} | {metrics['f1_score']:.4f} | {metrics['roc_auc']:.4f} |\n"
+    models_metrics.markdown = markdown_table
 
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 def upload_model_to_vertex(
     best_model_path: Input[Model],
     best_model_metrics_path: Input[Metrics],
     model_display_name: str,
-    experiment_name: str = 'fraud_detection_experiment'
+    experiment_name: str = 'fraud-detection-experiment'
 ):
     import google.cloud.aiplatform as aiplatform
     import json
