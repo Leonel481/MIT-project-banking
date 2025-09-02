@@ -228,8 +228,8 @@ def evaluate_models(
         confusion_matrix_data.append(row_dict)
 
     best_model_metrics_models.log_confusion_matrix(
-        labels=labels,
-        confusion_matrix=confusion_matrix_data
+        categories=labels,
+        matrix=confusion_matrix_data
     )
 
     # log roc auc
