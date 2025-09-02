@@ -1,0 +1,456 @@
+# PIPELINE DEFINITION
+# Name: mit-project-banking-pipeline-training
+# Description: Pipeline entrenamiento de modelos para el proyecto de detección de fraude bancario
+# Inputs:
+#    model_display_name: str [Default: 'fraud_detection_model']
+#    raw_data_path: str
+# Outputs:
+#    evaluate-models-best_model_metrics_path: system.Metrics
+#    evaluate-models-metrics_path: system.Metrics
+components:
+  comp-evaluate-models:
+    executorLabel: exec-evaluate-models
+    inputDefinitions:
+      artifacts:
+        encode_path:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        models_path:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        val_data_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      artifacts:
+        best_model_metrics_path:
+          artifactType:
+            schemaTitle: system.Metrics
+            schemaVersion: 0.0.1
+        best_model_path:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        metrics_path:
+          artifactType:
+            schemaTitle: system.Metrics
+            schemaVersion: 0.0.1
+  comp-load-process-data:
+    executorLabel: exec-load-process-data
+    inputDefinitions:
+      parameters:
+        raw_data_path:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        processed_data_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-split-data:
+    executorLabel: exec-split-data
+    inputDefinitions:
+      artifacts:
+        processed_data_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      artifacts:
+        test_data_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        train_data_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        val_data_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-train-models:
+    executorLabel: exec-train-models
+    inputDefinitions:
+      artifacts:
+        train_data_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+    outputDefinitions:
+      artifacts:
+        encode_path:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+        models_path:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+  comp-upload-model-to-vertex:
+    executorLabel: exec-upload-model-to-vertex
+    inputDefinitions:
+      artifacts:
+        best_model_path:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+      parameters:
+        model_display_name:
+          parameterType: STRING
+deploymentSpec:
+  executors:
+    exec-evaluate-models:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - evaluate_models
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.5.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef evaluate_models(\n    val_data_path: Input[Dataset],\n    models_path:\
+          \ Input[Model],\n    encode_path: Input[Model],\n    best_model_path: Output[Model],\n\
+          \    metrics_path: Output[Metrics],\n    best_model_metrics_path: Output[Metrics]\n\
+          ):\n    import pandas as pd\n    from sklearn.metrics import accuracy_score,\
+          \ precision_score, recall_score, f1_score, roc_auc_score\n    import joblib\n\
+          \    import json\n\n    # Cargar los datos de validaci\xF3n\n    data =\
+          \ pd.read_csv(val_data_path.path)\n\n    # Cargar los modelos y el encoder\n\
+          \    trained_models = joblib.load(models_path.path)\n    encoder = joblib.load(encode_path.path)\n\
+          \n    # Preparar los datos de validaci\xF3n\n    cat_features = ['payment_type','employment_status','housing_status','device_os']\n\
+          \    target = ['fraud_bool']\n\n    encoder_features = encoder.transform(data[cat_features])\n\
+          \    encoded_df = pd.DataFrame(encoder_features, columns=encoder.get_feature_names_out(cat_features))\n\
+          \n    X_val = pd.concat([data.drop(columns=cat_features + target), encoded_df],\
+          \ axis=1)\n    y_val = data[target]\n\n    # Evaluar los modelos\n    all_metrics\
+          \ = {}\n    best_model_name = None\n    best_model = None\n    best_f1 =\
+          \ -1\n\n    for name, model in trained_models.items():\n        y_pred =\
+          \ model.predict(X_val)\n        f1 = f1_score(y_val, y_pred)\n\n       \
+          \ all_metrics[name] = {\n            'accuracy': accuracy_score(y_val, y_pred),\n\
+          \            'precision': precision_score(y_val, y_pred),\n            'recall':\
+          \ recall_score(y_val, y_pred),\n            'f1_score': f1,\n          \
+          \  'roc_auc': roc_auc_score(y_val, y_pred)\n        }\n\n        if f1 >\
+          \ best_f1:\n            best_f1 = f1\n            best_model_name = name\n\
+          \            best_model = model\n\n    print(f'Resultados de la evaluaci\xF3\
+          n de modelos: {all_metrics}')\n\n    with open(metrics_path.path, 'w') as\
+          \ f:\n        json.dump(all_metrics, f, indent=4)\n\n    # Guardar el mejor\
+          \ modelo y las m\xE9tricas\n    best_model_path.path = best_model_path.path\
+          \ + f\"/best_model_{best_model_name}.joblib\"\n    metrics_path.path = metrics_path.path\
+          \ + \"/model_metrics.txt\" \n\n    best_model_metrics_path = all_metrics[best_model_name]\n\
+          \    print(f'Mejor modelo: {best_model_name} con m\xE9tricas: {best_model_metrics_path}')\n\
+          \n    joblib.dump(best_model, best_model_path.path)\n    with open(best_model_metrics_path.path,\
+          \ 'w') as f:\n        json.dump(best_model_metrics_path, f, indent=4)\n\n"
+        image: us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest
+    exec-load-process-data:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - load_process_data
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.5.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef load_process_data(\n    raw_data_path: str,\n    processed_data_path:\
+          \ Output[Dataset]\n):\n    import pandas as pd\n    import numpy as np\n\
+          \n    # Cargar los datos\n    data = pd.read_csv(raw_data_path)\n\n    #\
+          \ Definiendo variables nan y categoricas\n    var_nan = ['prev_address_months_count','current_address_months_count','intended_balcon_amount',\n\
+          \               'bank_months_count','session_length_in_minutes','device_distinct_emails_8w']\n\
+          \n    # Ingenieria de variables\n    data[var_nan] = data[var_nan].replace(-1,\
+          \ np.nan).astype('float')\n\n    data['prev_address_valid'] = np.where(data['prev_address_months_count']\
+          \ > 0,1,0)\n    data['velocity_6h'] = np.where(data['velocity_6h'] <= 0,data[\"\
+          velocity_6h\"].quantile(0.25),data[\"velocity_6h\"])\n    data['ratio_velocity_6h_24h']\
+          \ = data['velocity_6h']/data['velocity_24h']\n    data['ratio_velocity_24h_4w']\
+          \ = data['velocity_24h']/data['velocity_4w']\n    data['log_bank_branch_count_8w']\
+          \ = np.log1p(data['bank_branch_count_8w'])\n    data['log_days_since_request']\
+          \ = np.log1p(data['days_since_request'])\n    data['prev_bank_months_count']\
+          \ = np.where(data['bank_months_count'] <=0, 0, 1)\n    data['income_risk_score']\
+          \ = data['income']*data['credit_risk_score']\n\n    df = df.drop(columns\
+          \ = ['device_fraud_count','month','prev_address_months_count','intended_balcon_amount',\
+          \ 'source'])\n\n    # Guardar los datos procesados\n    processed_data_path.path\
+          \ = processed_data_path.path + \"/processed_data.csv\"\n    data.to_csv(processed_data_path.path,\
+          \ index=False)\n\n"
+        image: us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest
+    exec-split-data:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - split_data
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.5.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef split_data(\n    processed_data_path: Input[Dataset],\n    train_data_path:\
+          \ Output[Dataset],\n    test_data_path: Output[Dataset],\n    val_data_path:\
+          \ Output[Dataset]\n):\n    import pandas as pd\n    from sklearn.model_selection\
+          \ import train_test_split\n\n    # Cargar los datos procesados\n    data\
+          \ = pd.read_csv(processed_data_path.path)\n\n    # Diividir los datos en\
+          \ train, validation y test\n    train, val_test = train_test_split(data,\
+          \ test_size=0.2, random_state=42)\n    val, test = train_test_split(val_test,\
+          \ test_size=0.5, random_state=42)\n\n    # Guardar los conjuntos de datos\n\
+          \    train_data_path.path = train_data_path.path + \"/train_data.csv\"\n\
+          \    val_data_path.path = val_data_path.path + \"/val_data.csv\"\n    test_data_path.path\
+          \ = test_data_path.path + \"/test_data.csv\"\n\n    train.to_csv(train_data_path.path,\
+          \ index=False)\n    val.to_csv(val_data_path.path, index=False)\n    test.to_csv(test_data_path.path,\
+          \ index=False)\n\n"
+        image: us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest
+    exec-train-models:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - train_models
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.5.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef train_models(\n    train_data_path: Input[Dataset],\n    models_path:\
+          \ Output[Model],\n    encode_path: Output[Model]\n):\n    import pandas\
+          \ as pd\n    from sklearn.preprocessing import OneHotEncoder\n    from sklearn.compose\
+          \ import ColumnTransformer\n    from sklearn.ensemble import RandomForestClassifier\n\
+          \    from xgboost import XGBClassifier\n    from lightgbm import LGBMClassifier\n\
+          \    import joblib\n\n    # Cargar los datos de entrenamiento\n    data\
+          \ = pd.read_csv(train_data_path.path)\n\n    # Crear encoder, separar caracter\xED\
+          sticas y etiqueta\n    cat_features = ['payment_type','employment_status','housing_status','device_os']\n\
+          \    target = ['fraud_bool']\n\n    encoder = OneHotEncoder(handle_unknown='ignore',\
+          \ sparse_output=False)\n    encoder_features = encoder.fit_transform(data[cat_features])\n\
+          \    encoded_df = pd.DataFrame(encoder_features, columns=encoder.get_feature_names_out(cat_features))\n\
+          \n    X_train = pd.concat([data.drop(columns=cat_features + target), encoded_df],\
+          \ axis=1)\n    y_train = data[target]\n\n    # Balancear clases\n    neg,\
+          \ pos = y_train.value_counts()[0], y_train.value_counts()[1]\n    scale_pos_weight\
+          \ = neg / pos\n\n    # Definir y entrenar modelos\n    models = {\n    \
+          \    'RandomForest': RandomForestClassifier(\n            n_estimators=100,\n\
+          \            class_weight='balanced', \n            random_state=42\n  \
+          \          ),\n        'XGBoost': XGBClassifier(\n            eval_metric='logloss',\
+          \ \n            scale_pos_weight=scale_pos_weight, \n            random_state=42\n\
+          \            ),\n        'LightGBM': LGBMClassifier(\n            scale_pos_weight=scale_pos_weight,\n\
+          \              random_state=42\n              )\n    }\n\n    trained_models\
+          \ = {}\n    for name, model in models.items():\n        model.fit(X_train,\
+          \ y_train)\n        trained_models[name] = model\n\n    # Guardar los modelos\
+          \ y el encoder\n    models_path.path = models_path.path + \"/trained_models.joblib\"\
+          \n    encode_path.path = encode_path.path + \"/encoder.joblib\"\n\n    joblib.dump(trained_models,\
+          \ models_path.path)\n    joblib.dump(encoder, encode_path.path)\n\n"
+        image: us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest
+    exec-upload-model-to-vertex:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - upload_model_to_vertex
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.5.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef upload_model_to_vertex(\n    best_model_path: Input[Model],\n\
+          \    model_display_name: str\n):\n    import google.cloud.aiplatform as\
+          \ aiplatform\n\n    # Inicializar Vertex AI\n    aiplatform.init()\n\n \
+          \   # Subir el modelo a Vertex AI\n    artifact = aiplatform.Model.upload(\n\
+          \        display_name=model_display_name,\n        artifact_uri=best_model_path.path.rsplit('/',\
+          \ 1)[0],\n        serving_container_image_uri='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest'\n\
+          \    )\n\n    print(f'Modelo subido a Vertex AI con ID: {artifact.resource_name}')\n\
+          \n"
+        image: us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest
+pipelineInfo:
+  description: "Pipeline entrenamiento de modelos para el proyecto de detecci\xF3\
+    n de fraude bancario"
+  name: mit-project-banking-pipeline-training
+root:
+  dag:
+    outputs:
+      artifacts:
+        evaluate-models-best_model_metrics_path:
+          artifactSelectors:
+          - outputArtifactKey: best_model_metrics_path
+            producerSubtask: evaluate-models
+        evaluate-models-metrics_path:
+          artifactSelectors:
+          - outputArtifactKey: metrics_path
+            producerSubtask: evaluate-models
+    tasks:
+      evaluate-models:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-evaluate-models
+        dependentTasks:
+        - split-data
+        - train-models
+        inputs:
+          artifacts:
+            encode_path:
+              taskOutputArtifact:
+                outputArtifactKey: encode_path
+                producerTask: train-models
+            models_path:
+              taskOutputArtifact:
+                outputArtifactKey: models_path
+                producerTask: train-models
+            val_data_path:
+              taskOutputArtifact:
+                outputArtifactKey: val_data_path
+                producerTask: split-data
+        taskInfo:
+          name: evaluate-models
+      load-process-data:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-load-process-data
+        inputs:
+          parameters:
+            raw_data_path:
+              componentInputParameter: raw_data_path
+        taskInfo:
+          name: load-process-data
+      split-data:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-split-data
+        dependentTasks:
+        - load-process-data
+        inputs:
+          artifacts:
+            processed_data_path:
+              taskOutputArtifact:
+                outputArtifactKey: processed_data_path
+                producerTask: load-process-data
+        taskInfo:
+          name: split-data
+      train-models:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-train-models
+        dependentTasks:
+        - split-data
+        inputs:
+          artifacts:
+            train_data_path:
+              taskOutputArtifact:
+                outputArtifactKey: train_data_path
+                producerTask: split-data
+        taskInfo:
+          name: train-models
+      upload-model-to-vertex:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-upload-model-to-vertex
+        dependentTasks:
+        - evaluate-models
+        inputs:
+          artifacts:
+            best_model_path:
+              taskOutputArtifact:
+                outputArtifactKey: best_model_path
+                producerTask: evaluate-models
+          parameters:
+            model_display_name:
+              componentInputParameter: model_display_name
+        taskInfo:
+          name: upload-model-to-vertex
+  inputDefinitions:
+    parameters:
+      model_display_name:
+        defaultValue: fraud_detection_model
+        isOptional: true
+        parameterType: STRING
+      raw_data_path:
+        parameterType: STRING
+  outputDefinitions:
+    artifacts:
+      evaluate-models-best_model_metrics_path:
+        artifactType:
+          schemaTitle: system.Metrics
+          schemaVersion: 0.0.1
+      evaluate-models-metrics_path:
+        artifactType:
+          schemaTitle: system.Metrics
+          schemaVersion: 0.0.1
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.5.0
