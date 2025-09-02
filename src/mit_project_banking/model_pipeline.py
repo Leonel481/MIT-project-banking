@@ -1,7 +1,7 @@
 import google.cloud.aiplatform as aiplatform
 import kfp
 from kfp import compiler, dsl
-from kfp.dsl import Artifact, Dataset, Input, Metrics, Model, Output, component
+from kfp.dsl import Artifact, Dataset, Input, Metrics, Model, Output, component, ClassificationMetrics
 
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 def load_process_data(
@@ -143,10 +143,11 @@ def evaluate_models(
     encode_path: Input[Model],
     best_model_path: Output[Model],
     metrics_path: Output[Metrics],
-    best_model_metrics_path: Output[Metrics]
+    best_model_metrics_path: Output[Metrics],
+    best_model_metrics_models: Output[ClassificationMetrics]
 ):
     import pandas as pd
-    from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+    from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, roc_curve
     import joblib
     import json
     import os
@@ -214,15 +215,55 @@ def evaluate_models(
     with open(best_model_metrics_path, 'w') as f:
         json.dump(best_model_metrics, f, indent=4)
 
+    
+    # log the confusion matrix
+    labels = ['No Fraude', 'Fraude']
+
+    y_pred_best = best_model.predict(X_val)
+    cm = confusion_matrix(y_val, y_pred_best)
+
+    confusion_matrix_data = []
+    for i, row in enumerate(cm):
+        row_dict = {"label": labels[i], "row_metrics": [{"label": labels[j], "value": int(val)} for j, val in enumerate(row)]}
+        confusion_matrix_data.append(row_dict)
+
+    best_model_metrics_models.log_confusion_matrix(
+        labels=labels,
+        confusion_matrix=confusion_matrix_data
+    )
+
+    # log roc auc
+    y_pred_proba = best_model.predict_proba(X_val)[:, 1]
+    fpr, tpr, thresholds = roc_curve(y_val, y_pred_proba)
+
+    best_model_metrics_models.log_roc_auc(
+        fpr=fpr.tolist(),
+        tpr=tpr.tolist(),
+        thresholds=thresholds.tolist()
+    )
+
+
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 def upload_model_to_vertex(
     best_model_path: Input[Model],
-    model_display_name: str
+    best_model_metrics_path: Input[Metrics],
+    model_display_name: str,
+    experiment_name: str = 'fraud_detection_experiment'
 ):
     import google.cloud.aiplatform as aiplatform
+    import json
+    import os
 
     # Inicializar Vertex AI
     aiplatform.init()
+
+    metrics_file = os.path.join(best_model_metrics_path.path, os.listdir(best_model_metrics_path.path)[0])
+    with open(metrics_file, "r") as f:
+        metrics = json.load(f)
+    
+    # Crear Experimento
+    aiplatform.init(experiment=experiment_name)
+    run = aiplatform.start_run(run = f"run_{model_display_name}")
 
     # Subir el modelo a Vertex AI
     artifact = aiplatform.Model.upload(
@@ -230,6 +271,11 @@ def upload_model_to_vertex(
         artifact_uri=best_model_path.path.rsplit('/', 1)[0],
         serving_container_image_uri='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest'
     )
+
+    for k, v in metrics.items():
+        aiplatform.log_metric(k, v)
+    
+    aiplatform.end_run()
 
     print(f'Modelo subido a Vertex AI con ID: {artifact.resource_name}')
 
