@@ -307,6 +307,7 @@ def pipeline(
 
     upload_model_task = upload_model_to_vertex(
         best_model_path=evaluate_models_task.outputs['best_model_path'],
+        best_model_metrics_path=evaluate_models_task.outputs['best_model_metrics_path'],
         model_display_name=model_display_name
     )
 
