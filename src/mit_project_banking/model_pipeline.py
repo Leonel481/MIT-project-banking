@@ -238,9 +238,12 @@ def evaluate_models(
     fpr, tpr, thresholds = roc_curve(y_val, y_pred_proba)
 
     N_points = 200
-    fpr = np.nan_to_num(fpr[:N_points], nan=0.0, posinf=1.0, neginf=0.0)
-    tpr = np.nan_to_num(tpr[:N_points], nan=0.0, posinf=1.0, neginf=0.0)
-    thresholds = np.nan_to_num(thresholds[:N_points], nan=0.0, posinf=1.0, neginf=0.0)
+    total_points = len(fpr)
+    indices = np.linspace(0, total_points - 1, N_points, dtype = int)
+
+    fpr = np.nan_to_num(fpr[indices], nan=0.0, posinf=1.0, neginf=0.0)
+    tpr = np.nan_to_num(tpr[indices], nan=0.0, posinf=1.0, neginf=0.0)
+    thresholds = np.nan_to_num(thresholds[indices], nan=0.0, posinf=1.0, neginf=0.0)
 
     best_model_metrics_models.log_roc_curve(
         fpr=fpr.tolist(),
