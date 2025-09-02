@@ -149,6 +149,7 @@ def evaluate_models(
     from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
     import joblib
     import json
+    import os
 
     # Cargar los datos de validación
     data = pd.read_csv(f'{val_data_path.path}/val_data.csv')
@@ -191,6 +192,11 @@ def evaluate_models(
             best_model = model
 
     print(f'Resultados de la evaluación de modelos: {all_metrics}')
+
+    # Crear directorios si no existen en el docker
+    os.makedirs(metrics_path.path, exist_ok=True)
+    os.makedirs(best_model_path.path, exist_ok=True)
+    os.makedirs(best_model_metrics_path.path, exist_ok=True)
 
     # Guardar el mejor modelo y las métricas
     best_model_metrics = all_metrics[best_model_name]
