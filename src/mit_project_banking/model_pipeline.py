@@ -283,7 +283,7 @@ def upload_model_to_vertex(
     
     # Crear Experimento
     aiplatform.init(experiment=experiment_name)
-    run = aiplatform.start_run(run = f"run_{model_display_name}")
+    run = aiplatform.start_run(run = f"run-{model_display_name}")
 
     # Subir el modelo a Vertex AI
     artifact = aiplatform.Model.upload(
@@ -305,7 +305,7 @@ def upload_model_to_vertex(
 )
 def pipeline(
     raw_data_path: str,
-    model_display_name: str = 'fraud_detection_model'
+    model_display_name: str = 'fraud-detection-model'
 ):
     load_process_task = load_process_data(
         raw_data_path=raw_data_path,
@@ -354,7 +354,7 @@ if __name__ == '__main__':
         pipeline_root=PIPELINE_ROOT,
         parameter_values={
             'raw_data_path': INPUT_DATA_URI,
-            'model_display_name': 'fraud_detection_model'
+            'model_display_name': 'fraud-detection-model'
         }
     )
 
