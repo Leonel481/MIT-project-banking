@@ -271,6 +271,7 @@ def upload_model_to_vertex(
     experiment_name: str = 'fraud-detection-experiment'
 ):
     import google.cloud.aiplatform as aiplatform
+    import datetime
     import json
     import os
 
@@ -283,7 +284,8 @@ def upload_model_to_vertex(
     
     # Crear Experimento
     aiplatform.init(experiment=experiment_name)
-    run = aiplatform.start_run(run = f"run-{model_display_name}")
+    run_name = f"run-{model_display_name}-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}"
+    run = aiplatform.start_run(run = run_name)
 
     # Subir el modelo a Vertex AI
     artifact = aiplatform.Model.upload(
