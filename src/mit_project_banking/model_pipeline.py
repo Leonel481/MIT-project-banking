@@ -192,19 +192,22 @@ def evaluate_models(
 
     print(f'Resultados de la evaluación de modelos: {all_metrics}')
 
-    with open(metrics_path.path, 'w') as f:
-        json.dump(all_metrics, f, indent=4)
-    
     # Guardar el mejor modelo y las métricas
-    best_model_path.path = best_model_path.path + f"/best_model_{best_model_name}.joblib"
-    metrics_path.path = metrics_path.path + "/model_metrics.txt" 
+    best_model_metrics = all_metrics[best_model_name]
 
-    best_model_metrics_path = all_metrics[best_model_name]
-    print(f'Mejor modelo: {best_model_name} con métricas: {best_model_metrics_path}')
+    metrics_path = metrics_path.path + "/model_metrics.txt" 
 
-    joblib.dump(best_model, best_model_path.path)
-    with open(best_model_metrics_path.path, 'w') as f:
-        json.dump(best_model_metrics_path, f, indent=4)
+    best_model_path = best_model_path.path + f"/best_model_{best_model_name}.joblib"
+    best_model_metrics_path = best_model_metrics_path.path + f"/best_model_{best_model_name}_metrics.json"
+
+    with open(metrics_path, 'w') as f:
+        json.dump(all_metrics, f, indent=4)
+
+    print(f'Mejor modelo: {best_model_name} con métricas: {best_model_metrics}')
+
+    joblib.dump(best_model, best_model_path)
+    with open(best_model_metrics_path, 'w') as f:
+        json.dump(best_model_metrics, f, indent=4)
 
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 def upload_model_to_vertex(
