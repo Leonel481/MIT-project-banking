@@ -188,7 +188,7 @@ def train_models(
         markdown_table += f"| {model} | {metrics['accuracy']:.4f} | {metrics['precision']:.4f} | {metrics['recall']:.4f} | {metrics['f1_score']:.4f} | {metrics['roc_auc']:.4f} |\n"
     
     os.makedirs(metrics_models.path, exist_ok=True)
-    markdown_path = os.path.join(metrics_models.path, "markdown.md")
+    markdown_path = metrics_models.path + "/markdown.md"
     with open(markdown_path, "w") as f:
         f.write(markdown_table)
 
@@ -391,18 +391,18 @@ def tuning_model(
 
     # Preparar los datos de validación
     cat_features = ['payment_type','employment_status','housing_status','device_os']
-    target = ['fraud_bool']
+    target = 'fraud_bool'
 
     encoder_features_train = encoder.transform(data_train[cat_features])
     encoded_df_train = pd.DataFrame(encoder_features_train, columns=encoder.get_feature_names_out(cat_features))
 
-    X_train = pd.concat([data_train.drop(columns=cat_features + target), encoded_df_train], axis=1)
+    X_train = pd.concat([data_train.drop(columns=cat_features + [target]), encoded_df_train], axis=1)
     y_train = data_train[target]
 
     encoder_features_val = encoder.transform(data_val[cat_features])
     encoded_df_val = pd.DataFrame(encoder_features_val, columns=encoder.get_feature_names_out(cat_features))
 
-    X_val = pd.concat([data_val.drop(columns=cat_features + target), encoded_df_val], axis=1)
+    X_val = pd.concat([data_val.drop(columns=cat_features + [target]), encoded_df_val], axis=1)
     y_val = data_val[target]
         
     # Balancear clases
