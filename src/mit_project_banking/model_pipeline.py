@@ -45,7 +45,10 @@ def split_data(
     processed_data_path: Input[Dataset],
     train_data_path: Output[Dataset],
     test_data_path: Output[Dataset],
-    val_data_path: Output[Dataset]
+    val_data_path: Output[Dataset],
+    train_size: float = 0.8,
+    val_size: float = 0.1,
+    test_size: float = 0.1
 ):
     import pandas as pd
     from sklearn.model_selection import train_test_split
@@ -55,8 +58,8 @@ def split_data(
     data = pd.read_csv(f"{processed_data_path.path}/processed_data.csv")
 
     # Diividir los datos en train, validation y test
-    train, val_test = train_test_split(data, test_size=0.2, random_state=42)
-    val, test = train_test_split(val_test, test_size=0.5, random_state=42)
+    train, val_test = train_test_split(data, test_size = (1 - train_size), random_state=42)
+    val, test = train_test_split(val_test, test_size = (test_size / (val_size + test_size)), random_state=42)
 
     # Guardar los conjuntos de datos
     os.makedirs(train_data_path.path, exist_ok=True)
@@ -106,17 +109,17 @@ def train_models(
 
     # Definir y entrenar modelos
     models = {
-        'RandomForest': RandomForestClassifier(
+        'RandomForestClassifier': RandomForestClassifier(
             n_estimators=100,
             class_weight='balanced', 
             random_state=42
             ),
-        'XGBoost': XGBClassifier(
+        'XGBClassifier': XGBClassifier(
             eval_metric='logloss', 
             scale_pos_weight=scale_pos_weight, 
             random_state=42
             ),
-        'LightGBM': LGBMClassifier(
+        'LGBMClassifier': LGBMClassifier(
             scale_pos_weight=scale_pos_weight,
               random_state=42
               )
@@ -144,8 +147,9 @@ def evaluate_models(
     best_model_path: Output[Model],
     metrics_path: Output[Metrics],
     models_metrics: Output[Markdown],
-    best_model_metrics_path: Output[Metrics],
-    best_model_metrics_models: Output[ClassificationMetrics]
+    # best_model_metrics_path: Output[Metrics],
+    # best_model_metrics_models: Output[ClassificationMetrics],
+    best_model_name_output: Output[str]
 ):
     import pandas as pd
     import numpy as np
@@ -199,14 +203,14 @@ def evaluate_models(
     # Crear directorios si no existen en el docker
     os.makedirs(metrics_path.path, exist_ok=True)
     os.makedirs(best_model_path.path, exist_ok=True)
-    os.makedirs(best_model_metrics_path.path, exist_ok=True)
+    # os.makedirs(best_model_metrics_path.path, exist_ok=True)
 
     # Guardar el mejor modelo y las métricas
     best_model_metrics = all_metrics[best_model_name]
 
     metrics_path = metrics_path.path + "/model_metrics.txt" 
     best_model_path = best_model_path.path + f"/best_model_{best_model_name}.joblib"
-    best_model_metrics_path = best_model_metrics_path.path + f"/best_model_{best_model_name}_metrics.json"
+    # best_model_metrics_path = best_model_metrics_path.path + f"/best_model_{best_model_name}_metrics.json"
 
     with open(metrics_path, 'w') as f:
         json.dump(all_metrics, f, indent=4)
@@ -214,43 +218,40 @@ def evaluate_models(
     print(f'Mejor modelo: {best_model_name} con métricas: {best_model_metrics}')
 
     joblib.dump(best_model, best_model_path)
-    with open(best_model_metrics_path, 'w') as f:
-        json.dump(best_model_metrics, f, indent=4)
+
+    # with open(best_model_metrics_path, 'w') as f:
+    #     json.dump(best_model_metrics, f, indent=4)
 
     
-    # log the confusion matrix
-    labels = ['No Fraude', 'Fraude']
+    # # log the confusion matrix
+    # labels = ['No Fraude', 'Fraude']
 
-    y_pred_best = best_model.predict(X_val)
-    cm = confusion_matrix(y_val, y_pred_best)
-    confusion_matrix_data = cm.tolist()
-    # confusion_matrix_data = []
-    # for i, row in enumerate(cm):
-    #     row_dict = {"label": labels[i], "row_metrics": [{"label": labels[j], "value": int(val)} for j, val in enumerate(row)]}
-    #     confusion_matrix_data.append(row_dict)
+    # y_pred_best = best_model.predict(X_val)
+    # cm = confusion_matrix(y_val, y_pred_best)
+    # confusion_matrix_data = cm.tolist()
 
-    best_model_metrics_models.log_confusion_matrix(
-        categories=labels,
-        matrix=confusion_matrix_data
-    )
+    # best_model_metrics_models.log_confusion_matrix(
+    #     categories=labels,
+    #     matrix=confusion_matrix_data
+    # )
 
-    # log roc auc
-    y_pred_proba = best_model.predict_proba(X_val)[:, 1]
-    fpr, tpr, thresholds = roc_curve(y_val, y_pred_proba)
+    # # log roc auc
+    # y_pred_proba = best_model.predict_proba(X_val)[:, 1]
+    # fpr, tpr, thresholds = roc_curve(y_val, y_pred_proba)
 
-    N_points = 200
-    total_points = len(fpr)
-    indices = np.linspace(0, total_points - 1, N_points, dtype = int)
+    # N_points = 200
+    # total_points = len(fpr)
+    # indices = np.linspace(0, total_points - 1, N_points, dtype = int)
 
-    fpr = np.nan_to_num(fpr[indices], nan=0.0, posinf=1.0, neginf=0.0)
-    tpr = np.nan_to_num(tpr[indices], nan=0.0, posinf=1.0, neginf=0.0)
-    thresholds = np.nan_to_num(thresholds[indices], nan=0.0, posinf=1.0, neginf=0.0)
+    # fpr = np.nan_to_num(fpr[indices], nan=0.0, posinf=1.0, neginf=0.0)
+    # tpr = np.nan_to_num(tpr[indices], nan=0.0, posinf=1.0, neginf=0.0)
+    # thresholds = np.nan_to_num(thresholds[indices], nan=0.0, posinf=1.0, neginf=0.0)
 
-    best_model_metrics_models.log_roc_curve(
-        fpr=fpr.tolist(),
-        tpr=tpr.tolist(),
-        threshold=thresholds.tolist()
-    )
+    # best_model_metrics_models.log_roc_curve(
+    #     fpr=fpr.tolist(),
+    #     tpr=tpr.tolist(),
+    #     threshold=thresholds.tolist()
+    # )
 
     # Metricas in Markdown
     markdown_table = "| Modelo | Accuracy | Precision | Recall | F1 Score | ROC AUC |\n"
@@ -263,10 +264,166 @@ def evaluate_models(
     with open(markdown_path, "w") as f:
         f.write(markdown_table)
 
+    # Output del nombre del mejor modelo
+    with open(best_model_name_output.path, "w") as f:
+        f.write(best_model_name)
+
+@component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
+def tuning_model(
+    train_data_path: Input[Dataset],
+    val_data_path: Input[Dataset],
+    encoder_path: Input[Model],
+    best_model_name: str,
+    params_config_path: str,
+    tuned_model_path: Output[Model],
+    tune_model_metrics: Output[ClassificationMetrics],
+    n_trials: int = 50,
+):
+    import os
+    import pandas as pd
+    import numpy as np
+    import joblib
+    import optuna
+    import yaml
+    from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, roc_curve
+    from xgboost import XGBClassifier
+    from lightgbm import LGBMClassifier  
+    from sklearn.ensemble import RandomForestClassifier
+
+    # Cargar los datos de validación
+    data_train = pd.read_csv(f'{train_data_path.path}/train_data.csv')
+    data_val = pd.read_csv(f'{val_data_path.path}/val_data.csv')
+
+    # Cargar el encoder
+    encoder = joblib.load(f"{encoder_path.path}/encoder.joblib")
+
+    # Preparar los datos de validación
+    cat_features = ['payment_type','employment_status','housing_status','device_os']
+    target = ['fraud_bool']
+
+    encoder_features_train = encoder.transform(data_train[cat_features])
+    encoded_df_train = pd.DataFrame(encoder_features_train, columns=encoder.get_feature_names_out(cat_features))
+
+    X_train = pd.concat([data_train.drop(columns=cat_features + target), encoded_df_train], axis=1)
+    y_train = data_train[target]
+
+    encoder_features_val = encoder.transform(data_val[cat_features])
+    encoded_df_val = pd.DataFrame(encoder_features_val, columns=encoder.get_feature_names_out(cat_features))
+
+    X_val = pd.concat([data_val.drop(columns=cat_features + target), encoded_df_val], axis=1)
+    y_val = data_val[target]
+        
+    # Balancear clases
+    neg, pos = y_train.value_counts()[0], y_train.value_counts()[1]
+    scale_pos_weight = neg / pos
+
+    # Cargar el yaml de hiperparámetros
+    with open(params_config_path, 'r') as file:
+        params_config = yaml.safe_load(file)
+
+    # Definir hiperparámetros para ajustar
+    def objective(trial, params_config=params_config):
+
+        param_type = {
+            'n_estimators': 'int', 'max_depth': 'int', 'min_samples_split': 'int',
+            'min_samples_leaf': 'int', 'num_leaves': 'int',
+            'learning_rate': 'float', 'subsample': 'float', 'colsample_bytree': 'float',
+            'reg_alpha': 'float', 'reg_lambda': 'float', 'gamma': 'float',
+            'feature_fraction': 'float', 'bagging_fraction': 'float', 'lambda_l1': 'float',
+            'lambda_l2': 'float',
+            'max_features': 'categorical', 'bootstrap': 'categorical', 'class_weight': 'categorical',
+            'objective': 'constant'
+        }
+
+        params = {}
+
+        model_config = params_config.get(best_model_name)
+
+        for param_name, value in model_config.items():
+
+            if param_type.get(param_name) == 'int':
+                params[param_name] = trial.suggest_int(param_name, value[0], value[1])
+            elif param_type.get(param_name) == 'float':
+                params[param_name] = trial.suggest_float(param_name, value[0], value[1])
+            elif param_type.get(param_name) == 'categorical':
+                params[param_name] = trial.suggest_categorical(param_name, value)
+            elif param_type.get(param_name) == 'constant':
+                params[param_name] = value
+            else:
+                raise ValueError(f"Tipo de parámetro no soportado: {param_type[param_name]}")
+        
+        if best_model_name in ['LGBMClassifier', 'XGBClassifier']:
+            params['scale_pos_weight'] = scale_pos_weight
+        
+        # Crear la instancia del modelo dinámicamente
+        if best_model_name == 'RandomForestClassifier':
+            model = RandomForestClassifier(**params)
+        elif best_model_name == 'LGBMClassifier':
+            model = LGBMClassifier(**params)
+        elif best_model_name == 'XGBClassifier':
+            model = XGBClassifier(**params)
+        else:
+            raise ValueError(f"Modelo no soportado para tuning: {best_model_name}")
+
+        model.fit(X_train, y_train,
+                  eval_set=[(X_val, y_val)],
+                  verbose=False,
+                  early_stopping_rounds=10 if best_model_name in ['LGBMClassifier', 'XGBClassifier'] else None)
+
+        y_pred = model.predict(X_val)
+        f1 = f1_score(y_val, y_pred)
+
+        return f1
+
+    # Ejecutar la optimización de hiperparámetros
+    study = optuna.create_study(direction='maximize')
+    study.optimize(objective, n_trials=n_trials)
+
+    # Entrenar el modelo con los mejores hiperparámetros
+    best_params = study.best_trial.params
+    tuned_model = XGBClassifier(**best_params, random_state=42)
+    tuned_model.fit(X_val, y_val)
+
+    # Guardar el modelo ajustado
+    os.makedirs(tuned_model_path.path, exist_ok=True)
+    tuned_model_file = tuned_model_path.path + "/tuned_model.joblib"
+    joblib.dump(tuned_model, tuned_model_file)
+
+    # Metricas del modelo ajustado
+    # log the confusion matrix
+    labels = ['No Fraude', 'Fraude']
+
+    y_pred_best = tuned_model.predict(X_val)
+    cm = confusion_matrix(y_val, y_pred_best)
+    confusion_matrix_data = cm.tolist()
+
+    tune_model_metrics.log_confusion_matrix(
+        categories=labels,
+        matrix=confusion_matrix_data
+    )
+
+    # log roc auc
+    y_pred_proba = tuned_model.predict_proba(X_val)[:, 1]
+    fpr, tpr, thresholds = roc_curve(y_val, y_pred_proba)
+
+    N_points = 200
+    total_points = len(fpr)
+    indices = np.linspace(0, total_points - 1, N_points, dtype = int)
+
+    fpr = np.nan_to_num(fpr[indices], nan=0.0, posinf=1.0, neginf=0.0)
+    tpr = np.nan_to_num(tpr[indices], nan=0.0, posinf=1.0, neginf=0.0)
+    thresholds = np.nan_to_num(thresholds[indices], nan=0.0, posinf=1.0, neginf=0.0)
+
+    tune_model_metrics.log_roc_curve(
+        fpr=fpr.tolist(),
+        tpr=tpr.tolist(),
+        threshold=thresholds.tolist()
+    )
+
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 def upload_model_to_vertex(
     best_model_path: Input[Model],
-    best_model_metrics_path: Input[Metrics],
+    # best_model_metrics_path: Input[Metrics],
     model_display_name: str,
     experiment_name: str = 'fraud-detection-experiment'
 ):
@@ -278,9 +435,9 @@ def upload_model_to_vertex(
     # Inicializar Vertex AI
     aiplatform.init()
 
-    metrics_file = os.path.join(best_model_metrics_path.path, os.listdir(best_model_metrics_path.path)[0])
-    with open(metrics_file, "r") as f:
-        metrics = json.load(f)
+    # metrics_file = os.path.join(best_model_metrics_path.path, os.listdir(best_model_metrics_path.path)[0])
+    # with open(metrics_file, "r") as f:
+    #     metrics = json.load(f)
     
     # Crear Experimento
     aiplatform.init(experiment=experiment_name)
@@ -297,7 +454,7 @@ def upload_model_to_vertex(
     # for k, v in metrics.items():
     #     aiplatform.log_metrics(k, v)
     
-    aiplatform.log_metrics(metrics)
+    # aiplatform.log_metrics(metrics)
 
     aiplatform.end_run()
 
@@ -309,6 +466,10 @@ def upload_model_to_vertex(
 )
 def pipeline(
     raw_data_path: str,
+    train_size: float = 0.8,
+    val_size: float = 0.1,
+    test_size: float = 0.1,
+    params_config_path: str = 'src/mit_project_banking/config.yaml',
     model_display_name: str = 'fraud-detection-model'
 ):
     load_process_task = load_process_data(
@@ -317,6 +478,9 @@ def pipeline(
 
     split_data_task = split_data(
         processed_data_path=load_process_task.outputs['processed_data_path'],
+        train_size=train_size,
+        val_size=val_size,
+        test_size=test_size,
     )
 
     train_models_task = train_models(
@@ -328,10 +492,19 @@ def pipeline(
         models_path=train_models_task.outputs['models_path'],
         encode_path=train_models_task.outputs['encode_path'],
     )
+    
+    tuning_model_task = tuning_model(
+        train_data_path=split_data_task.outputs['train_data_path'],
+        val_data_path=split_data_task.outputs['val_data_path'],
+        encoder_path=train_models_task.outputs['encode_path'],
+        best_model_name=evaluate_models_task.outputs['best_model_name_output'],
+        params_config_path=params_config_path,
+    )
+    
 
     upload_model_task = upload_model_to_vertex(
-        best_model_path=evaluate_models_task.outputs['best_model_path'],
-        best_model_metrics_path=evaluate_models_task.outputs['best_model_metrics_path'],
+        best_model_path=tuning_model_task.outputs['tuned_model_path'],
+        # best_model_metrics_path=evaluate_models_task.outputs['best_model_metrics_path'],
         model_display_name=model_display_name
     )
 
@@ -358,7 +531,10 @@ if __name__ == '__main__':
         pipeline_root=PIPELINE_ROOT,
         parameter_values={
             'raw_data_path': INPUT_DATA_URI,
-            'model_display_name': 'fraud-detection-model'
+            'model_display_name': 'fraud-detection-model',
+            'train_size': 0.8,
+            'val_size': 0.1,
+            'test_size': 0.1
         }
     )
 
