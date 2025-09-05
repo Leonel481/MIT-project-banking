@@ -466,10 +466,10 @@ def upload_model_to_vertex(
 )
 def pipeline(
     raw_data_path: str,
+    params_config_path: str,
     train_size: float = 0.8,
     val_size: float = 0.1,
     test_size: float = 0.1,
-    params_config_path: str = 'src/mit_project_banking/config.yaml',
     model_display_name: str = 'fraud-detection-model'
 ):
     load_process_task = load_process_data(
@@ -514,11 +514,13 @@ if __name__ == '__main__':
     REGION = 'us-central1'
     SERVICE_ACCOUNT = 'workbench-sa@projectstylus01.iam.gserviceaccount.com'
     GCS_BUCKET = 'gs://mit-project-vertex-ai-artifacts'
+    NAME_CONFIG = 'config.yaml'
     PIPELINE_ROOT = f'{GCS_BUCKET}/pipeline_root/'
 
     aiplatform.init(project=PROJECT_ID, location=REGION, service_account=SERVICE_ACCOUNT, staging_bucket=GCS_BUCKET)
 
     INPUT_DATA_URI = f'{GCS_BUCKET}/data/Base.csv'
+    PARAMS_CONFIG_PATH = f'{GCS_BUCKET}/config/{NAME_CONFIG}'
 
     compiler.Compiler().compile(
         pipeline_func=pipeline,
@@ -531,6 +533,7 @@ if __name__ == '__main__':
         pipeline_root=PIPELINE_ROOT,
         parameter_values={
             'raw_data_path': INPUT_DATA_URI,
+            'params_config_path': PARAMS_CONFIG_PATH,
             'model_display_name': 'fraud-detection-model',
             'train_size': 0.8,
             'val_size': 0.1,
