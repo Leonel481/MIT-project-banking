@@ -99,7 +99,7 @@ def train_models(
 
     # Crear encoder, separar características y etiqueta
     cat_features = ['payment_type','employment_status','housing_status','device_os']
-    target = ['fraud_bool']
+    target = 'fraud_bool'
 
     encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
     encoder_features = encoder.fit_transform(data[cat_features])
@@ -219,7 +219,9 @@ def train_models(
     # Best model to output
     # with open(best_model_name_output.path + "/best_model.txt", "w") as f:
     #     f.write(best_model_name)
-    return best_model_name
+    
+    return best_model_name, encode_path, best_model_metrics, metrics_models
+
 
 
 # @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
