@@ -78,7 +78,7 @@ def split_data(
 def train_models(
     train_data_path: Input[Dataset],
     val_data_path: Input[Dataset],
-    best_model_name_output: Output[str],
+    best_model_name: Output[str],
     encode_path: Output[Model],
     best_model_metrics: Output[ClassificationMetrics],
     metrics_models: Output[Markdown],
@@ -115,7 +115,7 @@ def train_models(
     # Definir y entrenar modelos
     models = {
         'RandomForestClassifier': RandomForestClassifier(
-            n_estimators=100,
+            n_estimators=50,
             class_weight='balanced', 
             random_state=42
             ),
@@ -217,9 +217,9 @@ def train_models(
     )
 
     # Best model to output
-    with open(best_model_name_output.path + "/best_model.txt", "w") as f:
-        f.write(best_model_name)
-
+    # with open(best_model_name_output.path + "/best_model.txt", "w") as f:
+    #     f.write(best_model_name)
+    return best_model_name
 
 
 # @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
@@ -553,6 +553,7 @@ def pipeline(
     train_size: float = 0.8,
     val_size: float = 0.1,
     test_size: float = 0.1,
+    n_trials: int = 50,
     model_display_name: str = 'fraud-detection-model'
 ):
     load_process_task = load_process_data(
@@ -581,8 +582,9 @@ def pipeline(
         train_data_path=split_data_task.outputs['train_data_path'],
         val_data_path=split_data_task.outputs['val_data_path'],
         encoder_path=train_models_task.outputs['encode_path'],
-        best_model_name=train_models_task.outputs['best_model_name_output'],
+        best_model_name=train_models_task.outputs['best_model_name'],
         params_config_path=params_config_path,
+        n_trials=n_trials,
     )
     
 
@@ -621,7 +623,8 @@ if __name__ == '__main__':
             'model_display_name': 'fraud-detection-model',
             'train_size': 0.8,
             'val_size': 0.1,
-            'test_size': 0.1
+            'test_size': 0.1,
+            'n_trials': 50,
         }
     )
 
