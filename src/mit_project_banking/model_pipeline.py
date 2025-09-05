@@ -78,7 +78,7 @@ def split_data(
 def train_models(
     train_data_path: Input[Dataset],
     val_data_path: Input[Dataset],
-    best_model_name: Output[str],
+    # best_model_name: Output[str],
     encode_path: Output[Model],
     best_model_metrics: Output[ClassificationMetrics],
     metrics_models: Output[Markdown],
@@ -226,7 +226,7 @@ def train_models(
     # with open(best_model_name_output.path + "/best_model.txt", "w") as f:
     #     f.write(best_model_name)
 
-    return best_model_name, encode_path, best_model_metrics, metrics_models
+    # return best_model_name, encode_path, best_model_metrics, metrics_models
 
 
 
