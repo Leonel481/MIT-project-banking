@@ -58,8 +58,8 @@ def split_data(
     data = pd.read_csv(f"{processed_data_path.path}/processed_data.csv")
 
     # Diividir los datos en train, validation y test
-    train, val_test = train_test_split(data, test_size = (1 - train_size), random_state=42)
-    val, test = train_test_split(val_test, test_size = (test_size / (val_size + test_size)), random_state=42)
+    train, val_test = train_test_split(data, test_size = (1 - train_size), random_state=42, stratify=data['fraud_bool'])
+    val, test = train_test_split(val_test, test_size = (test_size / (val_size + test_size)), random_state=42, stratify=val_test['fraud_bool'])
 
     # Guardar los conjuntos de datos
     os.makedirs(train_data_path.path, exist_ok=True)
@@ -80,8 +80,8 @@ def train_models(
     val_data_path: Input[Dataset],
     best_model_name_output: Output[str],
     encode_path: Output[Model],
-    metrics_models: Output[ClassificationMetrics],
-    best_model_metrics: Output[Markdown],
+    best_model_metrics: Output[ClassificationMetrics],
+    metrics_models: Output[Markdown],
 ):
     import pandas as pd
     import numpy as np
