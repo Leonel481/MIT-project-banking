@@ -105,7 +105,7 @@ def train_models(
     encoder_features = encoder.fit_transform(data[cat_features])
     encoded_df = pd.DataFrame(encoder_features, columns=encoder.get_feature_names_out(cat_features))
 
-    X_train = pd.concat([data.drop(columns=cat_features + target), encoded_df], axis=1)
+    X_train = pd.concat([data.drop(columns=cat_features + [target]), encoded_df], axis=1)
     y_train = data[target]
 
     # Balancear clases
@@ -115,7 +115,7 @@ def train_models(
     # Definir y entrenar modelos
     models = {
         'RandomForestClassifier': RandomForestClassifier(
-            n_estimators=50,
+            n_estimators=10,
             class_weight='balanced', 
             random_state=42
             ),
@@ -150,7 +150,7 @@ def train_models(
     encoder_features_val = encoder.transform(data_val[cat_features])
     encoded_df = pd.DataFrame(encoder_features_val, columns=encoder.get_feature_names_out(cat_features))
 
-    X_val = pd.concat([data_val.drop(columns=cat_features + target), encoded_df], axis=1)
+    X_val = pd.concat([data_val.drop(columns=cat_features + [target]), encoded_df], axis=1)
     y_val = data_val[target]
 
     all_metrics = {}
@@ -219,7 +219,7 @@ def train_models(
     # Best model to output
     # with open(best_model_name_output.path + "/best_model.txt", "w") as f:
     #     f.write(best_model_name)
-    
+
     return best_model_name, encode_path, best_model_metrics, metrics_models
 
 
