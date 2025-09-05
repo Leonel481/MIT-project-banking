@@ -82,6 +82,7 @@ def train_models(
     encode_path: Output[Model],
     best_model_metrics: Output[ClassificationMetrics],
     metrics_models: Output[Markdown],
+    metrics_path: Output[Metrics],
 ):
     import pandas as pd
     import numpy as np
@@ -140,7 +141,7 @@ def train_models(
     os.makedirs(encode_path.path, exist_ok=True)
     # models_path = models_path.path + "/trained_models.joblib"
     encode_path = encode_path.path + "/encoder.joblib"
-
+    
     # joblib.dump(trained_models, models_path)
     joblib.dump(encoder, encode_path)
 
@@ -174,6 +175,11 @@ def train_models(
             best_f1 = f1
             best_model_name = name
             best_model = model
+
+    os.makedirs(metrics_path.path, exist_ok=True)
+    metrics_path = metrics_path.path + "/models_metrics.json" 
+    with open(metrics_path, 'w') as f:
+        json.dump(all_metrics, f, indent=4)
 
     # Table in Markdown
     markdown_table = "| Modelo | Accuracy | Precision | Recall | F1 Score | ROC AUC |\n"
