@@ -2,7 +2,7 @@
 # Name: mit-project-banking-pipeline-training
 # Description: Pipeline entrenamiento de modelos para el proyecto de detección de fraude bancario
 # Inputs:
-#    model_display_name: str [Default: 'fraud_detection_model']
+#    model_display_name: str [Default: 'fraud-detection-model']
 #    raw_data_path: str
 # Outputs:
 #    evaluate-models-best_model_metrics_models: system.ClassificationMetrics
@@ -42,6 +42,10 @@ components:
         metrics_path:
           artifactType:
             schemaTitle: system.Metrics
+            schemaVersion: 0.0.1
+        models_metrics:
+          artifactType:
+            schemaTitle: system.Markdown
             schemaVersion: 0.0.1
   comp-load-process-data:
     executorLabel: exec-load-process-data
@@ -109,7 +113,7 @@ components:
             schemaVersion: 0.0.1
       parameters:
         experiment_name:
-          defaultValue: fraud_detection_experiment
+          defaultValue: fraud-detection-experiment
           isOptional: true
           parameterType: STRING
         model_display_name:
@@ -144,9 +148,10 @@ deploymentSpec:
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef evaluate_models(\n    val_data_path: Input[Dataset],\n    models_path:\
           \ Input[Model],\n    encode_path: Input[Model],\n    best_model_path: Output[Model],\n\
-          \    metrics_path: Output[Metrics],\n    best_model_metrics_path: Output[Metrics],\n\
-          \    best_model_metrics_models: Output[ClassificationMetrics]\n):\n    import\
-          \ pandas as pd\n    from sklearn.metrics import accuracy_score, precision_score,\
+          \    metrics_path: Output[Metrics],\n    models_metrics: Output[Markdown],\n\
+          \    best_model_metrics_path: Output[Metrics],\n    best_model_metrics_models:\
+          \ Output[ClassificationMetrics]\n):\n    import pandas as pd\n    import\
+          \ numpy as np\n    from sklearn.metrics import accuracy_score, precision_score,\
           \ recall_score, f1_score, roc_auc_score, confusion_matrix, roc_curve\n \
           \   import joblib\n    import json\n    import os\n\n    # Cargar los datos\
           \ de validaci\xF3n\n    data = pd.read_csv(f'{val_data_path.path}/val_data.csv')\n\
@@ -181,15 +186,29 @@ deploymentSpec:
           \    with open(best_model_metrics_path, 'w') as f:\n        json.dump(best_model_metrics,\
           \ f, indent=4)\n\n\n    # log the confusion matrix\n    labels = ['No Fraude',\
           \ 'Fraude']\n\n    y_pred_best = best_model.predict(X_val)\n    cm = confusion_matrix(y_val,\
-          \ y_pred_best)\n\n    confusion_matrix_data = []\n    for i, row in enumerate(cm):\n\
-          \        row_dict = {\"label\": labels[i], \"row_metrics\": [{\"label\"\
-          : labels[j], \"value\": int(val)} for j, val in enumerate(row)]}\n     \
-          \   confusion_matrix_data.append(row_dict)\n\n    best_model_metrics_models.log_confusion_matrix(\n\
-          \        categories=labels,\n        matrix=confusion_matrix_data\n    )\n\
-          \n    # log roc auc\n    y_pred_proba = best_model.predict_proba(X_val)[:,\
-          \ 1]\n    fpr, tpr, thresholds = roc_curve(y_val, y_pred_proba)\n\n    best_model_metrics_models.log_roc_auc(\n\
-          \        fpr=fpr.tolist(),\n        tpr=tpr.tolist(),\n        thresholds=thresholds.tolist()\n\
-          \    )\n\n"
+          \ y_pred_best)\n    confusion_matrix_data = cm.tolist()\n    # confusion_matrix_data\
+          \ = []\n    # for i, row in enumerate(cm):\n    #     row_dict = {\"label\"\
+          : labels[i], \"row_metrics\": [{\"label\": labels[j], \"value\": int(val)}\
+          \ for j, val in enumerate(row)]}\n    #     confusion_matrix_data.append(row_dict)\n\
+          \n    best_model_metrics_models.log_confusion_matrix(\n        categories=labels,\n\
+          \        matrix=confusion_matrix_data\n    )\n\n    # log roc auc\n    y_pred_proba\
+          \ = best_model.predict_proba(X_val)[:, 1]\n    fpr, tpr, thresholds = roc_curve(y_val,\
+          \ y_pred_proba)\n\n    N_points = 200\n    total_points = len(fpr)\n   \
+          \ indices = np.linspace(0, total_points - 1, N_points, dtype = int)\n\n\
+          \    fpr = np.nan_to_num(fpr[indices], nan=0.0, posinf=1.0, neginf=0.0)\n\
+          \    tpr = np.nan_to_num(tpr[indices], nan=0.0, posinf=1.0, neginf=0.0)\n\
+          \    thresholds = np.nan_to_num(thresholds[indices], nan=0.0, posinf=1.0,\
+          \ neginf=0.0)\n\n    best_model_metrics_models.log_roc_curve(\n        fpr=fpr.tolist(),\n\
+          \        tpr=tpr.tolist(),\n        threshold=thresholds.tolist()\n    )\n\
+          \n    # Metricas in Markdown\n    markdown_table = \"| Modelo | Accuracy\
+          \ | Precision | Recall | F1 Score | ROC AUC |\\n\"\n    markdown_table +=\
+          \ \"|--------|----------|-----------|--------|----------|---------|\\n\"\
+          \n    for model, metrics in all_metrics.items():\n        markdown_table\
+          \ += f\"| {model} | {metrics['accuracy']:.4f} | {metrics['precision']:.4f}\
+          \ | {metrics['recall']:.4f} | {metrics['f1_score']:.4f} | {metrics['roc_auc']:.4f}\
+          \ |\\n\"\n\n    os.makedirs(models_metrics.path, exist_ok=True)\n    markdown_path\
+          \ = os.path.join(models_metrics.path, \"markdown.md\")\n    with open(markdown_path,\
+          \ \"w\") as f:\n        f.write(markdown_table)\n\n"
         image: us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest
     exec-load-process-data:
       container:
@@ -363,19 +382,20 @@ deploymentSpec:
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef upload_model_to_vertex(\n    best_model_path: Input[Model],\n\
           \    best_model_metrics_path: Input[Metrics],\n    model_display_name: str,\n\
-          \    experiment_name: str = 'fraud_detection_experiment'\n):\n    import\
-          \ google.cloud.aiplatform as aiplatform\n    import json\n    import os\n\
-          \n    # Inicializar Vertex AI\n    aiplatform.init()\n\n    metrics_file\
-          \ = os.path.join(best_model_metrics_path.path, os.listdir(best_model_metrics_path.path)[0])\n\
+          \    experiment_name: str = 'fraud-detection-experiment'\n):\n    import\
+          \ google.cloud.aiplatform as aiplatform\n    import datetime\n    import\
+          \ json\n    import os\n\n    # Inicializar Vertex AI\n    aiplatform.init()\n\
+          \n    metrics_file = os.path.join(best_model_metrics_path.path, os.listdir(best_model_metrics_path.path)[0])\n\
           \    with open(metrics_file, \"r\") as f:\n        metrics = json.load(f)\n\
           \n    # Crear Experimento\n    aiplatform.init(experiment=experiment_name)\n\
-          \    run = aiplatform.start_run(run = f\"run_{model_display_name}\")\n\n\
-          \    # Subir el modelo a Vertex AI\n    artifact = aiplatform.Model.upload(\n\
-          \        display_name=model_display_name,\n        artifact_uri=best_model_path.path.rsplit('/',\
-          \ 1)[0],\n        serving_container_image_uri='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest'\n\
-          \    )\n\n    for k, v in metrics.items():\n        aiplatform.log_metric(k,\
-          \ v)\n\n    aiplatform.end_run()\n\n    print(f'Modelo subido a Vertex AI\
-          \ con ID: {artifact.resource_name}')\n\n"
+          \    run_name = f\"run-{model_display_name}-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}\"\
+          \n    run = aiplatform.start_run(run = run_name)\n\n    # Subir el modelo\
+          \ a Vertex AI\n    artifact = aiplatform.Model.upload(\n        display_name=model_display_name,\n\
+          \        artifact_uri=best_model_path.path.rsplit('/', 1)[0],\n        serving_container_image_uri='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest'\n\
+          \    )\n\n    # for k, v in metrics.items():\n    #     aiplatform.log_metrics(k,\
+          \ v)\n\n    aiplatform.log_metrics(metrics)\n\n    aiplatform.end_run()\n\
+          \n    print(f'Modelo subido a Vertex AI con ID: {artifact.resource_name}')\n\
+          \n"
         image: us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest
 pipelineInfo:
   description: "Pipeline entrenamiento de modelos para el proyecto de detecci\xF3\
@@ -488,7 +508,7 @@ root:
   inputDefinitions:
     parameters:
       model_display_name:
-        defaultValue: fraud_detection_model
+        defaultValue: fraud-detection-model
         isOptional: true
         parameterType: STRING
       raw_data_path:
