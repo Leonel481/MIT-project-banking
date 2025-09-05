@@ -364,7 +364,7 @@ def tuning_model(
     train_data_path: Input[Dataset],
     val_data_path: Input[Dataset],
     encoder_path: Input[Model],
-    best_model_name: str,
+    metrics_path: Input[Metrics],
     params_config_path: str,
     tuned_model_path: Output[Model],
     tune_model_metrics: Output[ClassificationMetrics],
@@ -376,6 +376,7 @@ def tuning_model(
     import joblib
     import optuna
     import yaml
+    import json
     from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, roc_curve
     from xgboost import XGBClassifier
     from lightgbm import LGBMClassifier  
@@ -411,6 +412,13 @@ def tuning_model(
     # Cargar el yaml de hiperparámetros
     with open(params_config_path, 'r') as file:
         params_config = yaml.safe_load(file)
+
+    metrics_file = os.path.join(metrics_path.path, os.listdir(metrics_path.path)[0])
+    with open(metrics_file, "r") as f:
+        metrics = json.load(f)
+
+    best_model = max(metrics.items(), key=lambda x: x[1]["f1_score"])
+    best_model_name = best_model[0]
 
     # Definir hiperparámetros para ajustar
     def objective(trial, params_config=params_config):
@@ -590,7 +598,7 @@ def pipeline(
         train_data_path=split_data_task.outputs['train_data_path'],
         val_data_path=split_data_task.outputs['val_data_path'],
         encoder_path=train_models_task.outputs['encode_path'],
-        best_model_name=train_models_task.outputs['best_model_name'],
+        metrics_path=train_models_task.outputs['metrics_path'],
         params_config_path=params_config_path,
         n_trials=n_trials,
     )
