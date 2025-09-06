@@ -381,6 +381,7 @@ def tuning_model(
     from xgboost import XGBClassifier
     from lightgbm import LGBMClassifier  
     from sklearn.ensemble import RandomForestClassifier
+    import gcsfs
 
     # Cargar los datos de validación
     data_train = pd.read_csv(f'{train_data_path.path}/train_data.csv')
@@ -410,9 +411,16 @@ def tuning_model(
     scale_pos_weight = neg / pos
 
     # Cargar el yaml de hiperparámetros
-    with open(params_config_path, 'r') as file:
-        params_config = yaml.safe_load(file)
+    def load_yaml_from_gcs(gcs_path: str):
+        fs = gcsfs.GCSFileSystem()
+        with fs.open(gcs_path, 'r') as f:
+            config = yaml.safe_load(f)
+        return config
 
+
+    params_config = load_yaml_from_gcs("gs://tu-bucket/configs/hyperparams.yaml")
+
+    # Load metrics json
     metrics_file = os.path.join(metrics_path.path, os.listdir(metrics_path.path)[0])
     with open(metrics_file, "r") as f:
         metrics = json.load(f)
