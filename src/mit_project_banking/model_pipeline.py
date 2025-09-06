@@ -537,7 +537,7 @@ def evaluate_model(
     test_data_path: Input[Dataset],
     best_model_path: Input[Model],
     encode_path: Input[Model],
-    tuned_model_path: Output[Model],
+    final_tuned_model_path: Output[Model],
     best_model_metrics: Output[ClassificationMetrics],
     best_model_metrics_path: Output[Metrics],
 ):
@@ -554,7 +554,7 @@ def evaluate_model(
 
     # Cargar el encoder y modelo
     encoder = joblib.load(f"{encode_path.path}/encoder.joblib")
-    best_model = joblib.load(f"{best_model_path.path}/best_model.joblib")
+    best_model = joblib.load(f"{best_model_path.path}/tuned_model.joblib")
 
     # Preparar los datos de test
     cat_features = ['payment_type','employment_status','housing_status','device_os']
@@ -583,9 +583,9 @@ def evaluate_model(
     )
 
     # Model
-    os.makedirs(tuned_model_path.path, exist_ok=True)
-    tuned_model_path = tuned_model_path.path + "/final_tuned_model.joblib"
-    joblib.dump(best_model, tuned_model_path)
+    os.makedirs(final_tuned_model_path.path, exist_ok=True)
+    final_tuned_model_path = final_tuned_model_path.path + "/final_tuned_model.joblib"
+    joblib.dump(best_model, final_tuned_model_path)
 
     # log roc auc
     y_pred_proba = best_model.predict_proba(X_test)[:, 1]
@@ -707,7 +707,7 @@ def pipeline(
     )   
 
     upload_model_task = upload_model_to_vertex(
-        best_model_path=evaluate_model_task.outputs['tuned_model_path'],
+        best_model_path=evaluate_model_task.outputs['final_tuned_model_path'],
         best_model_metrics_path=evaluate_model_task.outputs['best_model_metrics_path'],
         model_display_name=model_display_name
     )
