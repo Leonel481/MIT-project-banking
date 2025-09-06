@@ -176,11 +176,6 @@ def train_models(
             best_model_name = name
             best_model = model
 
-    os.makedirs(metrics_path.path, exist_ok=True)
-    metrics_path = metrics_path.path + "/models_metrics.json" 
-    with open(metrics_path, 'w') as f:
-        json.dump(all_metrics, f, indent=4)
-
     # Table in Markdown
     # markdown_table = "| Modelo | Accuracy | Precision | Recall | F1 Score | ROC AUC |\n"
     # markdown_table += "|--------|----------|-----------|--------|----------|---------|\n"
@@ -228,6 +223,11 @@ def train_models(
         param = ['f1_score','roc_auc']
         for i in param:
             metrics_path.log_metric(f'{name} - {i}', all_metrics[name].get(i))
+    
+    os.makedirs(metrics_path.path, exist_ok=True)
+    metrics_path = metrics_path.path + "/models_metrics.json" 
+    with open(metrics_path, 'w') as f:
+        json.dump(all_metrics, f, indent=4)
 
 # @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 # def evaluate_models(
