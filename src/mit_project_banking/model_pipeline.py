@@ -537,6 +537,7 @@ def evaluate_model(
     test_data_path: Input[Dataset],
     best_model_path: Input[Model],
     encode_path: Input[Model],
+    tuned_model_path: Output[Model],
     best_model_metrics: Output[ClassificationMetrics],
     best_model_metrics_path: Output[Metrics],
 ):
@@ -580,6 +581,11 @@ def evaluate_model(
         categories=labels,
         matrix=confusion_matrix_data
     )
+
+    # Model
+    os.makedirs(tuned_model_path.path, exist_ok=True)
+    tuned_model_path = tuned_model_path.path + "/final_tuned_model.joblib"
+    joblib.dump(best_model, tuned_model_path)
 
     # log roc auc
     y_pred_proba = best_model.predict_proba(X_test)[:, 1]
