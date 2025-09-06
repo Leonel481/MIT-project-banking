@@ -222,13 +222,12 @@ def train_models(
         threshold=thresholds.tolist()
     )
 
-    # Best model to output
-    # with open(best_model_name_output.path + "/best_model.txt", "w") as f:
-    #     f.write(best_model_name)
+    # log param metric
 
-    # return best_model_name, encode_path, best_model_metrics, metrics_models
-
-
+    for name in all_metrics.items():
+        param = ['f1_score','roc_auc']
+        for i in param:
+            metrics_path.log_metric(f'{name} - {i}', all_metrics[name].get(i))
 
 # @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 # def evaluate_models(
