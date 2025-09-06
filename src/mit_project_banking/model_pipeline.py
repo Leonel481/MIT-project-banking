@@ -615,7 +615,7 @@ def evaluate_model(
         }
     
     for metric, value in model_metrics.items():
-        best_model_metrics.log_metric(metric, value)
+        best_model_metrics_path.log_metric(metric, value)
 
     os.makedirs(best_model_metrics_path.path, exist_ok=True)
     metrics_file_path = best_model_metrics_path.path + "/model_metrics.json"
