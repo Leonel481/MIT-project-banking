@@ -219,14 +219,13 @@ def train_models(
 
     # log param metric
 
-    for name in all_metrics.items():
-        param = ['f1_score','roc_auc']
-        for i in param:
-            metrics_path.log_metric(f'{name} - {i}', all_metrics[name].get(i))
+    for name, metrics_dict in all_metrics.items():
+        metrics_path.log_metric(f'{name}_f1_score', metrics_dict.get('f1_score'))
+        metrics_path.log_metric(f'{name}_roc_auc', metrics_dict.get('roc_auc'))
     
     os.makedirs(metrics_path.path, exist_ok=True)
-    metrics_path = metrics_path.path + "/models_metrics.json" 
-    with open(metrics_path, 'w') as f:
+    metrics_file_path = metrics_path.path + "/models_metrics.json" 
+    with open(metrics_file_path, 'w') as f:
         json.dump(all_metrics, f, indent=4)
 
 # @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
