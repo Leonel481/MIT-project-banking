@@ -411,14 +411,15 @@ def tuning_model(
     scale_pos_weight = neg / pos
 
     # Cargar el yaml de hiperparámetros
-    def load_yaml_from_gcs(gcs_path: str):
+    def download_yaml_from_gcs(gcs_path: str, local_path: str = "config.yaml"):
         fs = gcsfs.GCSFileSystem()
-        with fs.open(gcs_path, 'r') as f:
+        fs.get(gcs_path, local_path)
+
+        with open(local_path, "r") as f:
             config = yaml.safe_load(f)
         return config
 
-
-    params_config = load_yaml_from_gcs("gs://tu-bucket/configs/hyperparams.yaml")
+    params_config = download_yaml_from_gcs(params_config_path)
 
     # Load metrics json
     metrics_file = os.path.join(metrics_path.path, os.listdir(metrics_path.path)[0])
