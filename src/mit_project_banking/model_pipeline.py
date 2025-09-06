@@ -81,7 +81,7 @@ def train_models(
     # best_model_name: Output[str],
     encode_path: Output[Model],
     best_model_metrics: Output[ClassificationMetrics],
-    metrics_models: Output[Markdown],
+    # metrics_models: Output[Markdown],
     metrics_path: Output[Metrics],
 ):
     import pandas as pd
@@ -182,15 +182,15 @@ def train_models(
         json.dump(all_metrics, f, indent=4)
 
     # Table in Markdown
-    markdown_table = "| Modelo | Accuracy | Precision | Recall | F1 Score | ROC AUC |\n"
-    markdown_table += "|--------|----------|-----------|--------|----------|---------|\n"
-    for model, metrics in all_metrics.items():
-        markdown_table += f"| {model} | {metrics['accuracy']:.4f} | {metrics['precision']:.4f} | {metrics['recall']:.4f} | {metrics['f1_score']:.4f} | {metrics['roc_auc']:.4f} |\n"
+    # markdown_table = "| Modelo | Accuracy | Precision | Recall | F1 Score | ROC AUC |\n"
+    # markdown_table += "|--------|----------|-----------|--------|----------|---------|\n"
+    # for model, metrics in all_metrics.items():
+    #     markdown_table += f"| {model} | {metrics['accuracy']:.4f} | {metrics['precision']:.4f} | {metrics['recall']:.4f} | {metrics['f1_score']:.4f} | {metrics['roc_auc']:.4f} |\n"
     
-    os.makedirs(metrics_models.path, exist_ok=True)
-    markdown_path = metrics_models.path + "/markdown.md"
-    with open(markdown_path, "w") as f:
-        f.write(markdown_table)
+    # os.makedirs(metrics_models.path, exist_ok=True)
+    # markdown_path = metrics_models.path + "/markdown.md"
+    # with open(markdown_path, "w") as f:
+    #     f.write(markdown_table)
 
     # log the confusion matrix
     labels = ['No Fraude', 'Fraude']
@@ -640,7 +640,7 @@ if __name__ == '__main__':
             'train_size': 0.8,
             'val_size': 0.1,
             'test_size': 0.1,
-            'n_trials': 50,
+            'n_trials': 10,
         }
     )
 
