@@ -568,7 +568,7 @@ def evaluate_model(
 
     # Evaluar el modelo
     y_pred = best_model.predict(X_test)
-    f1_score = f1_score(y_test, y_pred)
+    # f1_score = f1_score(y_test, y_pred)
 
     # log the confusion matrix
     labels = ['No Fraude', 'Fraude']
