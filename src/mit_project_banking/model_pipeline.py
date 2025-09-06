@@ -533,9 +533,93 @@ def tuning_model(
     )
 
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
+def evaluate_model(
+    test_data_path: Input[Dataset],
+    best_model_path: Input[Model],
+    encode_path: Input[Model],
+    best_model_metrics: Output[ClassificationMetrics],
+    best_model_metrics_path: Output[Metrics],
+):
+
+    import pandas as pd
+    import numpy as np
+    from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, roc_curve
+    import joblib
+    import json
+    import os
+
+    # Cargar los datos de test
+    data_test = pd.read_csv(f'{test_data_path.path}/test_data.csv')
+
+    # Cargar el encoder y modelo
+    encoder = joblib.load(f"{encode_path.path}/encoder.joblib")
+    best_model = joblib.load(f"{best_model_path.path}/best_model.joblib")
+
+    # Preparar los datos de test
+    cat_features = ['payment_type','employment_status','housing_status','device_os']
+    target = 'fraud_bool'
+
+    encoder_features_test = encoder.transform(data_test[cat_features])
+    encoded_df_test = pd.DataFrame(encoder_features_test, columns=encoder.get_feature_names_out(cat_features))
+
+    X_test = pd.concat([data_test.drop(columns=cat_features + [target]), encoded_df_test], axis=1)
+    y_test = data_test[target]
+
+    # Evaluar el modelo
+    y_pred = best_model.predict(X_test)
+    f1_score = f1_score(y_test, y_pred)
+
+    # log the confusion matrix
+    labels = ['No Fraude', 'Fraude']
+
+    y_pred_best = best_model.predict(X_test)
+    cm = confusion_matrix(y_test, y_pred_best)
+    confusion_matrix_data = cm.tolist()
+
+    best_model_metrics.log_confusion_matrix(
+        categories=labels,
+        matrix=confusion_matrix_data
+    )
+
+    # log roc auc
+    y_pred_proba = best_model.predict_proba(X_test)[:, 1]
+    fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
+
+    N_points = 200
+    total_points = len(fpr)
+    indices = np.linspace(0, total_points - 1, N_points, dtype = int)
+
+    fpr = np.nan_to_num(fpr[indices], nan=0.0, posinf=1.0, neginf=0.0)
+    tpr = np.nan_to_num(tpr[indices], nan=0.0, posinf=1.0, neginf=0.0)
+    thresholds = np.nan_to_num(thresholds[indices], nan=0.0, posinf=1.0, neginf=0.0)
+
+    best_model_metrics.log_roc_curve(
+        fpr=fpr.tolist(),
+        tpr=tpr.tolist(),
+        threshold=thresholds.tolist()
+    ) 
+
+    # log metric
+    model_metrics = {
+            'accuracy': accuracy_score(y_test, y_pred),
+            'precision': precision_score(y_test, y_pred),
+            'recall': recall_score(y_test, y_pred),
+            'f1_score': f1_score(y_test, y_pred),
+            'roc_auc': roc_auc_score(y_test, y_pred)
+        }
+    
+    for metric, value in model_metrics.items():
+        best_model_metrics.log_metric(metric, value)
+
+    os.makedirs(best_model_metrics_path.path, exist_ok=True)
+    metrics_file_path = best_model_metrics_path.path + "/model_metrics.json"
+    with open(metrics_file_path, 'w') as f:
+        json.dump(model_metrics, f, indent=4)
+
+@component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 def upload_model_to_vertex(
     best_model_path: Input[Model],
-    # best_model_metrics_path: Input[Metrics],
+    best_model_metrics_path: Input[Metrics],
     model_display_name: str,
     experiment_name: str = 'fraud-detection-experiment'
 ):
@@ -547,9 +631,9 @@ def upload_model_to_vertex(
     # Inicializar Vertex AI
     aiplatform.init()
 
-    # metrics_file = os.path.join(best_model_metrics_path.path, os.listdir(best_model_metrics_path.path)[0])
-    # with open(metrics_file, "r") as f:
-    #     metrics = json.load(f)
+    metrics_file = os.path.join(best_model_metrics_path.path, os.listdir(best_model_metrics_path.path)[0])
+    with open(metrics_file, "r") as f:
+        metrics = json.load(f)
     
     # Crear Experimento
     aiplatform.init(experiment=experiment_name)
@@ -563,10 +647,10 @@ def upload_model_to_vertex(
         serving_container_image_uri='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest'
     )
 
-    # for k, v in metrics.items():
-    #     aiplatform.log_metrics(k, v)
+    for k, v in metrics.items():
+        aiplatform.log_metrics(k, v)
     
-    # aiplatform.log_metrics(metrics)
+    aiplatform.log_metrics(metrics)
 
     aiplatform.end_run()
 
@@ -600,13 +684,7 @@ def pipeline(
         train_data_path=split_data_task.outputs['train_data_path'],
         val_data_path=split_data_task.outputs['val_data_path'],
     )
-
-    # evaluate_models_task = evaluate_models(
-    #     val_data_path=split_data_task.outputs['val_data_path'],
-    #     models_path=train_models_task.outputs['models_path'],
-    #     encode_path=train_models_task.outputs['encode_path'],
-    # )
-    
+ 
     tuning_model_task = tuning_model(
         train_data_path=split_data_task.outputs['train_data_path'],
         val_data_path=split_data_task.outputs['val_data_path'],
@@ -616,10 +694,15 @@ def pipeline(
         n_trials=n_trials,
     )
     
+    evaluate_model_task = evaluate_model(
+        test_data_path=split_data_task.outputs['test_data_path'],
+        best_model_path=tuning_model_task.outputs['tuned_model_path'],
+        encode_path=train_models_task.outputs['encode_path'],
+    )   
 
     upload_model_task = upload_model_to_vertex(
-        best_model_path=tuning_model_task.outputs['tuned_model_path'],
-        # best_model_metrics_path=evaluate_models_task.outputs['best_model_metrics_path'],
+        best_model_path=evaluate_model_task.outputs['tuned_model_path'],
+        best_model_metrics_path=evaluate_model_task.outputs['best_model_metrics_path'],
         model_display_name=model_display_name
     )
 
