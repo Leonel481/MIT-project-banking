@@ -652,10 +652,7 @@ def upload_model_to_vertex(
         artifact_uri=best_model_path.path.rsplit('/', 1)[0],
         serving_container_image_uri='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest'
     )
-
-    for k, v in metrics.items():
-        aiplatform.log_metrics(k, v)
-    
+  
     aiplatform.log_metrics(metrics)
 
     aiplatform.end_run()
