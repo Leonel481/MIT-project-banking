@@ -473,10 +473,16 @@ def tuning_model(
         else:
             raise ValueError(f"Modelo no soportado para tuning: {best_model_name}")
 
-        model.fit(X_train, y_train,
-                  eval_set=[(X_val, y_val)],
-                  verbose=False,
-                  early_stopping_rounds=10 if best_model_name in ['LGBMClassifier', 'XGBClassifier'] else None)
+        # Condicional para fit()
+
+        if best_model_name in ['LGBMClassifier', 'XGBClassifier']:
+            model.fit(X_train, y_train,
+                      eval_set=[(X_val, y_val)],
+                      verbose=False,
+                      early_stopping_rounds=10)
+        
+        else:
+            model.fit(X_train, y_train)
 
         y_pred = model.predict(X_val)
         f1 = f1_score(y_val, y_pred)
