@@ -176,17 +176,6 @@ def train_models(
             best_model_name = name
             best_model = model
 
-    # Table in Markdown
-    # markdown_table = "| Modelo | Accuracy | Precision | Recall | F1 Score | ROC AUC |\n"
-    # markdown_table += "|--------|----------|-----------|--------|----------|---------|\n"
-    # for model, metrics in all_metrics.items():
-    #     markdown_table += f"| {model} | {metrics['accuracy']:.4f} | {metrics['precision']:.4f} | {metrics['recall']:.4f} | {metrics['f1_score']:.4f} | {metrics['roc_auc']:.4f} |\n"
-    
-    # os.makedirs(metrics_models.path, exist_ok=True)
-    # markdown_path = metrics_models.path + "/markdown.md"
-    # with open(markdown_path, "w") as f:
-    #     f.write(markdown_table)
-
     # log the confusion matrix
     labels = ['No Fraude', 'Fraude']
 
@@ -228,134 +217,6 @@ def train_models(
     with open(metrics_file_path, 'w') as f:
         json.dump(all_metrics, f, indent=4)
 
-# @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
-# def evaluate_models(
-#     val_data_path: Input[Dataset],
-#     models_path: Input[Model],
-#     encode_path: Input[Model],
-#     best_model_path: Output[Model],
-#     metrics_path: Output[Metrics],
-#     models_metrics: Output[Markdown],
-#     # best_model_metrics_path: Output[Metrics],
-#     # best_model_metrics_models: Output[ClassificationMetrics],
-#     best_model_name_output: Output[str]
-# ):
-#     import pandas as pd
-#     import numpy as np
-#     from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, roc_curve
-#     import joblib
-#     import json
-#     import os
-
-#     # Cargar los datos de validación
-#     data = pd.read_csv(f'{val_data_path.path}/val_data.csv')
-
-#     # Cargar los modelos y el encoder
-#     trained_models = joblib.load(f"{models_path.path}/trained_models.joblib")
-#     encoder = joblib.load(f"{encode_path.path}/encoder.joblib")
-
-#     # Preparar los datos de validación
-#     cat_features = ['payment_type','employment_status','housing_status','device_os']
-#     target = ['fraud_bool']
-
-#     encoder_features = encoder.transform(data[cat_features])
-#     encoded_df = pd.DataFrame(encoder_features, columns=encoder.get_feature_names_out(cat_features))
-
-#     X_val = pd.concat([data.drop(columns=cat_features + target), encoded_df], axis=1)
-#     y_val = data[target]
-
-#     # Evaluar los modelos
-#     all_metrics = {}
-#     best_model_name = None
-#     best_model = None
-#     best_f1 = -1
-
-#     for name, model in trained_models.items():
-#         y_pred = model.predict(X_val)
-#         f1 = f1_score(y_val, y_pred)
-
-#         all_metrics[name] = {
-#             'accuracy': accuracy_score(y_val, y_pred),
-#             'precision': precision_score(y_val, y_pred),
-#             'recall': recall_score(y_val, y_pred),
-#             'f1_score': f1,
-#             'roc_auc': roc_auc_score(y_val, y_pred)
-#         }
-
-#         if f1 > best_f1:
-#             best_f1 = f1
-#             best_model_name = name
-#             best_model = model
-
-#     print(f'Resultados de la evaluación de modelos: {all_metrics}')
-
-#     # Crear directorios si no existen en el docker
-#     os.makedirs(metrics_path.path, exist_ok=True)
-#     os.makedirs(best_model_path.path, exist_ok=True)
-#     # os.makedirs(best_model_metrics_path.path, exist_ok=True)
-
-#     # Guardar el mejor modelo y las métricas
-#     best_model_metrics = all_metrics[best_model_name]
-
-#     metrics_path = metrics_path.path + "/model_metrics.txt" 
-#     best_model_path = best_model_path.path + f"/best_model_{best_model_name}.joblib"
-#     # best_model_metrics_path = best_model_metrics_path.path + f"/best_model_{best_model_name}_metrics.json"
-
-#     with open(metrics_path, 'w') as f:
-#         json.dump(all_metrics, f, indent=4)
-
-#     print(f'Mejor modelo: {best_model_name} con métricas: {best_model_metrics}')
-
-#     joblib.dump(best_model, best_model_path)
-
-#     # with open(best_model_metrics_path, 'w') as f:
-#     #     json.dump(best_model_metrics, f, indent=4)
-
-    
-#     # # log the confusion matrix
-#     # labels = ['No Fraude', 'Fraude']
-
-#     # y_pred_best = best_model.predict(X_val)
-#     # cm = confusion_matrix(y_val, y_pred_best)
-#     # confusion_matrix_data = cm.tolist()
-
-#     # best_model_metrics_models.log_confusion_matrix(
-#     #     categories=labels,
-#     #     matrix=confusion_matrix_data
-#     # )
-
-#     # # log roc auc
-#     # y_pred_proba = best_model.predict_proba(X_val)[:, 1]
-#     # fpr, tpr, thresholds = roc_curve(y_val, y_pred_proba)
-
-#     # N_points = 200
-#     # total_points = len(fpr)
-#     # indices = np.linspace(0, total_points - 1, N_points, dtype = int)
-
-#     # fpr = np.nan_to_num(fpr[indices], nan=0.0, posinf=1.0, neginf=0.0)
-#     # tpr = np.nan_to_num(tpr[indices], nan=0.0, posinf=1.0, neginf=0.0)
-#     # thresholds = np.nan_to_num(thresholds[indices], nan=0.0, posinf=1.0, neginf=0.0)
-
-#     # best_model_metrics_models.log_roc_curve(
-#     #     fpr=fpr.tolist(),
-#     #     tpr=tpr.tolist(),
-#     #     threshold=thresholds.tolist()
-#     # )
-
-#     # Metricas in Markdown
-#     markdown_table = "| Modelo | Accuracy | Precision | Recall | F1 Score | ROC AUC |\n"
-#     markdown_table += "|--------|----------|-----------|--------|----------|---------|\n"
-#     for model, metrics in all_metrics.items():
-#         markdown_table += f"| {model} | {metrics['accuracy']:.4f} | {metrics['precision']:.4f} | {metrics['recall']:.4f} | {metrics['f1_score']:.4f} | {metrics['roc_auc']:.4f} |\n"
-    
-#     os.makedirs(models_metrics.path, exist_ok=True)
-#     markdown_path = os.path.join(models_metrics.path, "markdown.md")
-#     with open(markdown_path, "w") as f:
-#         f.write(markdown_table)
-
-#     # Output del nombre del mejor modelo
-#     with open(best_model_name_output.path, "w") as f:
-#         f.write(best_model_name)
 
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 def tuning_model(
@@ -740,7 +601,8 @@ if __name__ == '__main__':
             'val_size': 0.1,
             'test_size': 0.1,
             'n_trials': 10,
-        }
+        },
+        enable_caching=False
     )
 
     job.run()
