@@ -116,7 +116,7 @@ def train_models(
     # Definir y entrenar modelos
     models = {
         'RandomForestClassifier': RandomForestClassifier(
-            n_estimators=10,
+            n_estimators=50,
             class_weight='balanced', 
             random_state=42
             ),
@@ -372,8 +372,7 @@ def tuning_model(
         tuned_model.fit(
             X_train, y_train,
             eval_set=[(X_val, y_val)],
-            verbose=False,
-            early_stopping_rounds=10
+            verbose=False
         )
     else:
         raise ValueError(f"Modelo no soportado: {best_model_name}")
