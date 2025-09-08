@@ -334,15 +334,18 @@ def tuning_model(
 
         # Condicional para fit()
 
-        if best_model_name in ['LGBMClassifier', 'XGBClassifier']:
+        if best_model_name == 'RandomForestClassifier':
+            model.fit(X_train, y_train)
+        elif best_model_name == 'LGBMClassifier':
             model.fit(X_train, y_train,
                       eval_set=[(X_val, y_val)],
                       verbose=False,
                       early_stopping_rounds=10)
+        elif best_model_name == 'XGBClassifier':
+            model.fit(X_train, y_train,
+                      eval_set=[(X_val, y_val)],
+                      verbose=False)
         
-        else:
-            model.fit(X_train, y_train)
-
         y_pred = model.predict(X_val)
         f1 = f1_score(y_val, y_pred)
 
