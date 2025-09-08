@@ -120,15 +120,15 @@ def train_models(
             class_weight='balanced', 
             random_state=42
             ),
-        # 'XGBClassifier': XGBClassifier(
-        #     eval_metric='logloss', 
-        #     scale_pos_weight=scale_pos_weight, 
-        #     random_state=42
-        #     ),
-        # 'LGBMClassifier': LGBMClassifier(
-        #     scale_pos_weight=scale_pos_weight,
-        #       random_state=42
-        #       )
+        'XGBClassifier': XGBClassifier(
+            eval_metric='logloss', 
+            scale_pos_weight=scale_pos_weight, 
+            random_state=42
+            ),
+        'LGBMClassifier': LGBMClassifier(
+            scale_pos_weight=scale_pos_weight,
+              random_state=42
+              )
     }
 
     trained_models = {}
@@ -354,8 +354,41 @@ def tuning_model(
 
     # Entrenar el modelo con los mejores hiperparámetros
     best_params = study.best_trial.params
-    tuned_model = XGBClassifier(**best_params, random_state=42)
-    tuned_model.fit(X_val, y_val)
+
+
+    if best_model_name == 'RandomForestClassifier':
+        tuned_model = RandomForestClassifier(**best_params, random_state=42)
+        tuned_model.fit(X_train, y_train)
+    elif best_model_name == 'LGBMClassifier':
+        tuned_model = LGBMClassifier(**best_params, random_state=42)
+        tuned_model.fit(
+            X_train, y_train,
+            eval_set=[(X_val, y_val)],
+            verbose=False,
+            early_stopping_rounds=10
+        )
+    elif best_model_name == 'XGBClassifier':
+        tuned_model = XGBClassifier(**best_params, random_state=42, use_label_encoder=False)
+        tuned_model.fit(
+            X_train, y_train,
+            eval_set=[(X_val, y_val)],
+            verbose=False,
+            early_stopping_rounds=10
+        )
+    else:
+        raise ValueError(f"Modelo no soportado: {best_model_name}")
+    
+    # Umbrales
+    y_pred_proba = tuned_model.predict_proba(X_val)[:, 1]
+    thresholds = np.arange(0.0, 1.01, 0.01)
+    f1_scores = []
+    for threshold in thresholds:
+        y_pred = (y_pred_proba >= threshold).astype(int)
+        f1 = f1_score(y_val, y_pred)
+        f1_scores.append(f1)
+
+    best_threshold = thresholds[np.argmax(f1_scores)]
+    print(f"Mejor umbral para maximizar F1-score: {best_threshold}")
 
     # Guardar el modelo ajustado
     os.makedirs(tuned_model_path.path, exist_ok=True)

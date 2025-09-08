@@ -1,22 +1,22 @@
 # Parametros de entrada para el pipeline
 
-# RandomForestClassifier:
-#   n_estimators: [100, 500]
-#   max_depth: [5, 20]
-#   max_features: ['auto', 'sqrt', 'log2']
-#   min_samples_split: [2, 10]
-#   min_samples_leaf: [1, 5]
-#   bootstrap: [True, False]
-#   class_weight: [None, 'balanced', 'balanced_subsample']
-
 RandomForestClassifier:
-  n_estimators: [10, 10]
-  max_depth: [5, 5]
-  max_features: ['sqrt']
-  min_samples_split: [2, 2]
-  min_samples_leaf: [1, 1]
-  bootstrap: [True]
-  class_weight: ['balanced']
+  n_estimators: [100, 500]
+  max_depth: [5, 20]
+  max_features: ['auto', 'sqrt', 'log2']
+  min_samples_split: [2, 10]
+  min_samples_leaf: [1, 5]
+  bootstrap: [True, False]
+  class_weight: [None, 'balanced', 'balanced_subsample']
+
+# RandomForestClassifier:
+#   n_estimators: [10, 10]
+#   max_depth: [5, 5]
+#   max_features: ['sqrt']
+#   min_samples_split: [2, 2]
+#   min_samples_leaf: [1, 1]
+#   bootstrap: [True]
+#   class_weight: ['balanced']
 
 LGBMClassifier:
   objective: binary
