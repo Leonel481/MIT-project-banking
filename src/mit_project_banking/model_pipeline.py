@@ -102,7 +102,9 @@ def train_models(
 
     encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
     encoder_features = encoder.fit_transform(data[cat_features])
-    encoded_df = pd.DataFrame(encoder_features, columns=encoder.get_feature_names_out(cat_features))
+    encoded_df = pd.DataFrame(encoder_features, 
+                              columns=encoder.get_feature_names_out(cat_features),
+                              index=data.index)
 
     X_train = pd.concat([data.drop(columns=cat_features + [target]), encoded_df], axis=1)
     y_train = data[target]
@@ -138,7 +140,9 @@ def train_models(
     # Evaluate models
     data_val = pd.read_csv(f'{val_data_path.path}/val_data.csv')
     encoder_features_val = encoder.transform(data_val[cat_features])
-    encoded_df = pd.DataFrame(encoder_features_val, columns=encoder.get_feature_names_out(cat_features))
+    encoded_df = pd.DataFrame(encoder_features_val, 
+                              columns=encoder.get_feature_names_out(cat_features),
+                              index=data_val.index)
 
     X_val = pd.concat([data_val.drop(columns=cat_features + [target]), encoded_df], axis=1)
     y_val = data_val[target]
@@ -150,6 +154,8 @@ def train_models(
     for name, model in models.items():
         model.fit(X_train, y_train)
         y_pred = model.predict(X_val)
+        y_proba = model.predict_proba(X_val)[:, 1]
+
         f1 = f1_score(y_val, y_pred)
 
         all_metrics[name] = {
@@ -157,7 +163,7 @@ def train_models(
             'precision': precision_score(y_val, y_pred),
             'recall': recall_score(y_val, y_pred),
             'f1_score': f1,
-            'roc_auc': roc_auc_score(y_val, y_pred)
+            'roc_auc': roc_auc_score(y_val, y_proba)
         }
 
         print(f"{name} - F1 Score: {f1}")
@@ -244,13 +250,17 @@ def tuning_model(
     target = 'fraud_bool'
 
     encoder_features_train = encoder.transform(data_train[cat_features])
-    encoded_df_train = pd.DataFrame(encoder_features_train, columns=encoder.get_feature_names_out(cat_features))
+    encoded_df_train = pd.DataFrame(encoder_features_train, 
+                                    columns=encoder.get_feature_names_out(cat_features),
+                                    index=data_train.index)
 
     X_train = pd.concat([data_train.drop(columns=cat_features + [target]), encoded_df_train], axis=1)
     y_train = data_train[target]
 
     encoder_features_val = encoder.transform(data_val[cat_features])
-    encoded_df_val = pd.DataFrame(encoder_features_val, columns=encoder.get_feature_names_out(cat_features))
+    encoded_df_val = pd.DataFrame(encoder_features_val, 
+                                  columns=encoder.get_feature_names_out(cat_features),
+                                  index=data_val.index)
 
     X_val = pd.concat([data_val.drop(columns=cat_features + [target]), encoded_df_val], axis=1)
     y_val = data_val[target]
