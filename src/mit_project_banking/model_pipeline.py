@@ -131,18 +131,14 @@ def train_models(
               )
     }
 
-    trained_models = {}
-    for name, model in models.items():
-        model.fit(X_train, y_train)
-        trained_models[name] = model
+    # trained_models = {}
+    # for name, model in models.items():
+    #     model.fit(X_train, y_train)
+    #     trained_models[name] = model
 
-    # Guardar los modelos y el encoder
-    # os.makedirs(models_path.path, exist_ok=True)
+    # Guardar el encoder
     os.makedirs(encode_path.path, exist_ok=True)
-    # models_path = models_path.path + "/trained_models.joblib"
     encode_path = encode_path.path + "/encoder.joblib"
-    
-    # joblib.dump(trained_models, models_path)
     joblib.dump(encoder, encode_path)
 
     
@@ -158,7 +154,8 @@ def train_models(
     best_model = None
     best_f1 = -1
 
-    for name, model in trained_models.items():
+    for name, model in models.items():
+        model.fit(X_train, y_train)
         y_pred = model.predict(X_val)
         f1 = f1_score(y_val, y_pred)
 
@@ -205,7 +202,6 @@ def train_models(
     )
 
     # log param metric
-
     for name, metrics_dict in all_metrics.items():
         metrics_path.log_metric(f'{name}_f1_score', metrics_dict.get('f1_score'))
         metrics_path.log_metric(f'{name}_roc_auc', metrics_dict.get('roc_auc'))
@@ -332,7 +328,7 @@ def tuning_model(
 
         # Condicional para fit()
         print(params)
-        
+
         if best_model_name == 'RandomForestClassifier':
             model.fit(X_train, y_train)
         elif best_model_name == 'LGBMClassifier':
