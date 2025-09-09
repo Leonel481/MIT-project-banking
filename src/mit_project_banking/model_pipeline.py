@@ -78,10 +78,8 @@ def split_data(
 def train_models(
     train_data_path: Input[Dataset],
     val_data_path: Input[Dataset],
-    # best_model_name: Output[str],
     encode_path: Output[Model],
     best_model_metrics: Output[ClassificationMetrics],
-    # metrics_models: Output[Markdown],
     metrics_path: Output[Metrics],
 ):
     import pandas as pd
@@ -127,14 +125,9 @@ def train_models(
             ),
         'LGBMClassifier': LGBMClassifier(
             scale_pos_weight=scale_pos_weight,
-              random_state=42
-              )
+            random_state=42
+            )
     }
-
-    # trained_models = {}
-    # for name, model in models.items():
-    #     model.fit(X_train, y_train)
-    #     trained_models[name] = model
 
     # Guardar el encoder
     os.makedirs(encode_path.path, exist_ok=True)
@@ -166,6 +159,9 @@ def train_models(
             'f1_score': f1,
             'roc_auc': roc_auc_score(y_val, y_pred)
         }
+
+        print(f"{name} - F1 Score: {f1}")
+        print(f"{name} - Accuracy: {all_metrics[name]}")
 
         if f1 > best_f1:
             best_f1 = f1
