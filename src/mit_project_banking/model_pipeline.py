@@ -116,7 +116,7 @@ def train_models(
     # Definir y entrenar modelos
     models = {
         'RandomForestClassifier': RandomForestClassifier(
-            n_estimators=50,
+            n_estimators=100,
             class_weight='balanced', 
             random_state=42
             ),
@@ -155,7 +155,6 @@ def train_models(
     y_val = data_val[target]
 
     all_metrics = {}
-    best_model_name = None
     best_model = None
     best_f1 = -1
 
@@ -173,7 +172,6 @@ def train_models(
 
         if f1 > best_f1:
             best_f1 = f1
-            best_model_name = name
             best_model = model
 
     # log the confusion matrix
@@ -289,7 +287,7 @@ def tuning_model(
     best_model_name = best_model[0]
 
     # Definir hiperparámetros para ajustar
-    def objective(trial, params_config=params_config):
+    def objective(trial):
 
         param_type = {
             'n_estimators': 'int', 'max_depth': 'int', 'min_samples_split': 'int',
@@ -333,7 +331,8 @@ def tuning_model(
             raise ValueError(f"Modelo no soportado para tuning: {best_model_name}")
 
         # Condicional para fit()
-
+        print(params)
+        
         if best_model_name == 'RandomForestClassifier':
             model.fit(X_train, y_train)
         elif best_model_name == 'LGBMClassifier':
