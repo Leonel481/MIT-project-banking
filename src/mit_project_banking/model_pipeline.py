@@ -381,21 +381,17 @@ def tuning_model(
         raise ValueError(f"Modelo no soportado: {best_model_name}")
     
     # Umbrales
-    y_pred_proba = tuned_model.predict_proba(X_val)[:, 1]
-    thresholds = np.arange(0.0, 1.01, 0.01)
-    f1_scores = []
-    for threshold in thresholds:
-        y_pred = (y_pred_proba >= threshold).astype(int)
-        f1 = f1_score(y_val, y_pred)
-        f1_scores.append(f1)
+    # y_pred_proba = tuned_model.predict_proba(X_val)[:, 1]
+    # thresholds = np.arange(0.0, 0.7, 0.9)
+    # f1_scores = []
+    # for threshold in thresholds:
+    #     y_pred = (y_pred_proba >= threshold).astype(int)
+    #     f1 = f1_score(y_val, y_pred)
+    #     f1_scores.append(f1)
 
-    best_threshold = thresholds[np.argmax(f1_scores)]
-    print(f"Mejor umbral para maximizar F1-score: {best_threshold}")
+    # best_threshold = thresholds[np.argmax(f1_scores)]
+    # print(f"Mejor umbral para maximizar F1-score: {best_threshold}")
 
-    # Guardar el modelo ajustado
-    os.makedirs(tuned_model_path.path, exist_ok=True)
-    tuned_model_file = tuned_model_path.path + "/tuned_model.joblib"
-    joblib.dump(tuned_model, tuned_model_file)
 
     # Metricas del modelo ajustado
     # log the confusion matrix
@@ -427,6 +423,16 @@ def tuning_model(
         tpr=tpr.tolist(),
         threshold=thresholds.tolist()
     )
+
+    # Metadata del modelo ajustado
+    tuned_model_path.metadata['model'] = best_model_name
+    tuned_model_path.metadata['F1-score'] = f1_score(y_val, y_pred_best)
+    tuned_model_path.metadata['ROC-AUC'] = roc_auc_score(y_val, y_pred_best)
+
+    # Guardar el modelo ajustado
+    os.makedirs(tuned_model_path.path, exist_ok=True)
+    tuned_model_file = tuned_model_path.path + "/tuned_model.joblib"
+    joblib.dump(tuned_model, tuned_model_file)
 
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 def evaluate_model(
@@ -641,3 +647,6 @@ if __name__ == '__main__':
     )
 
     job.run()
+
+
+# pydantic settings para yaml
