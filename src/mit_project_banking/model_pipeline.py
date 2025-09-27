@@ -449,6 +449,234 @@ def tuning_model(
     tuned_model_file = tuned_model_path.path + "/tuned_model.joblib"
     joblib.dump(tuned_model, tuned_model_file)
 
+
+@component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
+def calibrate_model(
+    val_data_path: Input[Dataset],
+    best_model_path: Input[Model],
+    encoder_path: Input[Model],
+    scenery_metrics: Output[Metrics],
+    tune_model_metrics: Output[ClassificationMetrics],
+    human_hit_rate: float = 0.80,
+):
+    import pandas as pd
+    import numpy as np
+    from typing import Optional, Dict, Union
+    from sklearn.metrics import roc_curve
+    import joblib
+    import json
+    import os
+
+    def cost_function(
+            y_true: np.ndarray, 
+            y_proba: np.ndarray, 
+            t_low_grid: np.ndarray, 
+            t_high_grid: np.ndarray,
+            c_fn: float = 10000, 
+            c_fp: float = 200, 
+            c_review: float = 30, 
+            h: float = 0.80,
+            max_reviews: Optional[int] = None
+        ) -> Dict[str, Union[float, int]]:
+        """
+        Calcula el Umbral Óptimo de Decisión de Tres Vías (3WD) que minimiza el costo operacional total.
+
+        Esta función simula un sistema de detección de fraude con tres resultados (Auto-Aprobar,
+        Revisión Humana, Auto-Rechazar) y encuentra la combinación de umbrales (t_low, t_high)
+        que resulta en el menor costo de negocio, considerando los costos asimétricos y la
+        capacidad de revisión humana.
+
+        Args:
+            y_true: Etiquetas reales de fraude (0 o 1).
+            y_proba: Probabilidades predichas por el modelo para la clase positiva (fraude).
+            t_low_grid: Array de umbrales inferiores a probar (p.ej., np.linspace(0.01, 0.4, 50)).
+            t_high_grid: Array de umbrales superiores a probar (p.ej., np.linspace(0.4, 0.99, 50)).
+            c_fn: Costo de un Falso Negativo (Fraude no detectado). Alto costo por defecto.
+            c_fp: Costo de un Falso Positivo (Transacción legítima rechazada automáticamente). Costo moderado.
+            c_review: Costo de procesar un solo caso por el equipo de revisión humana. Bajo costo.
+            h: Eficacia (Hit Rate) del equipo de revisión humana (fracción de fraudes que atrapan).
+            max_reviews: Límite superior opcional para la cantidad de casos que el equipo humano
+                        puede revisar. Si se excede, la combinación de umbrales se ignora.
+
+        Returns:
+            Un diccionario que contiene el costo mínimo (`cost`), los umbrales óptimos (`t_low`, `t_high`)
+            y métricas de desempeño detalladas para ese umbral (TP, FP, FN, Recall, etc.).
+        """
+        best = {'cost': np.inf}
+        n = len(y_true)
+
+        real_fraud = (y_true == 1)
+        real_no_fraud = (y_true == 0)
+        total_frauds = real_fraud.sum()
+
+        for t_low in t_low_grid:
+            for t_high in t_high_grid:
+
+                if t_low >= t_high:
+                    continue
+                
+                # Segmentacion Umbrales
+                auto_decline_mask = (y_proba >= t_high)
+                review_mask = (y_proba < t_high) & (y_proba > t_low)
+                auto_approve_mask = (y_proba <= t_low)
+
+                # Casos
+                TP_auto = np.sum(auto_decline_mask & real_fraud)
+                FP_auto = np.sum(auto_decline_mask & real_no_fraud)
+                FN_auto = np.sum(auto_approve_mask & real_fraud)
+
+                frauds_in_review = np.sum(review_mask & real_fraud)
+                no_frauds_in_review = np.sum(review_mask & real_no_fraud)
+                review_count = np.sum(review_mask)
+
+                # Capacidad
+                if (max_reviews is not None) and (review_count > max_reviews):
+                    continue
+                
+                frauds_caught_by_review = h * frauds_in_review
+                frauds_missed_by_review = (1 - h) * frauds_in_review
+                FN_after = FN_auto + frauds_missed_by_review
+
+                no_frauds_declined_by_review = (1 - h) * no_frauds_in_review
+                FP_after = FP_auto + no_frauds_declined_by_review
+                
+                # Funcion de costo a minimizar 
+
+                f_cost = c_fn * FN_after + c_fp * FP_after + c_review * review_count
+
+                # Resultados
+
+                if f_cost < best['cost']:
+                    best = {
+                        "cost": f_cost,
+                        "t_low": t_low,
+                        "t_high": t_high,
+                        "TP_auto": int(TP_auto),
+                        "FP_auto": int(FP_auto),
+                        "frauds_in_review": int(frauds_in_review),
+                        "legit_in_review": int(no_frauds_in_review),
+                        "review_count": int(review_count),
+                        "FN_after": float(FN_after),
+                        "FP_after": float(FP_after), # Añadido para seguimiento
+                        "recall_overall": (TP_auto + frauds_caught_by_review) / (total_frauds + 1e-9),
+                        "precision_auto_decline": TP_auto / (TP_auto + FP_auto + 1e-9),
+                        "frac_review": review_count / n
+                    }
+        return best
+
+    def analyze_cost_function(best_results, total_samples, human_hit_rate):
+
+        TP_auto = best_results['TP_auto']
+        frauds_in_review = best_results['frauds_in_review']
+        FN_after = best_results['FN_after']
+        FP_after = best_results['FP_after']
+        FP_auto = best_results['FP_auto']
+        h = human_hit_rate
+
+        FN_auto = FN_after - (1-h) * frauds_in_review
+        
+
+        Total_Fraudes = TP_auto + frauds_in_review + FN_auto
+        legit_in_review = best_results['legit_in_review']
+
+        if total_samples is None:
+            total_samples = round(best_results['review_count'] / best_results['frac_review'])
+
+        Total_Fraudes = TP_auto + frauds_in_review + FN_auto
+        Total_Legitimos = total_samples - Total_Fraudes
+        TN_auto = Total_Legitimos - legit_in_review - FP_auto
+
+        confusion_matrix_data = [[TN_auto, legit_in_review, FP_auto],
+                                 [FN_auto, frauds_in_review, TP_auto]]
+        
+        frauds_caught_by_review = h * frauds_in_review
+        TP_after = TP_auto + frauds_caught_by_review
+
+        recall_fraude = TP_after / (TP_after + FN_after + 1e-9)
+        precision_fraude = TP_after / (TP_after + FP_after + 1e-9)
+        f1_fraude = 2 * (precision_fraude * recall_fraude) / (precision_fraude + recall_fraude + 1e-9)
+        
+        return confusion_matrix_data, recall_fraude, precision_fraude, f1_fraude
+
+    # Cargar los datos de validación
+    data_val = pd.read_csv(f'{val_data_path.path}/val_data.csv')
+
+    # Cargar el encoder
+    encoder = joblib.load(f"{encoder_path.path}/encoder.joblib")
+
+    # Preparar los datos de validación
+    cat_features = data_val.select_dtypes(include=['object']).columns.tolist()
+    target = 'fraud_bool'
+
+    encoder_features_val = encoder.transform(data_val[cat_features])
+    encoded_df_val = pd.DataFrame(encoder_features_val, 
+                                  columns=encoder.get_feature_names_out(cat_features),
+                                  index=data_val.index)
+
+    X_val = pd.concat([data_val.drop(columns=cat_features + [target]), encoded_df_val], axis=1)
+    y_val = data_val[target]
+
+    # Cargar el modelo
+    tuned_model = joblib.load(f"{best_model_path.path}/tuned_model.joblib")
+
+    y_pred_proba = tuned_model.predict_proba(X_val)[:, 1]
+
+    t_low_grid = np.linspace(0.01, 0.2, 40)
+    t_high_grid = np.linspace(0.05, 0.5, 60)
+
+    results = cost_function(y_val, y_pred_proba,
+                                 t_low_grid, t_high_grid,
+                                 h = human_hit_rate,
+                                 max_reviews=2000)
+    
+    # Metricas del modelo ajustado con la calibracion de la funcion de costo
+    # log the confusion matrix
+    labels = ['No Fraude', 'Fraude']
+
+    # y_pred_best = (y_pred_proba >= optimal_threshold).astype(int)
+    cm, recall, precision, f1 = analyze_cost_function(results, total_samples=None, human_hit_rate=human_hit_rate)
+
+    tune_model_metrics.log_confusion_matrix(
+        categories=labels,
+        matrix=cm
+    )
+
+    # log roc auc
+    fpr, tpr, thresholds = roc_curve(y_val, y_pred_proba)
+
+    N_points = 200
+    total_points = len(fpr)
+    indices = np.linspace(0, total_points - 1, N_points, dtype = int)
+
+    fpr = np.nan_to_num(fpr[indices], nan=0.0, posinf=1.0, neginf=0.0)
+    tpr = np.nan_to_num(tpr[indices], nan=0.0, posinf=1.0, neginf=0.0)
+    thresholds = np.nan_to_num(thresholds[indices], nan=0.0, posinf=1.0, neginf=0.0)
+
+    tune_model_metrics.log_roc_curve(
+        fpr=fpr.tolist(),
+        tpr=tpr.tolist(),
+        threshold=thresholds.tolist()
+    )
+
+    all_metrics = {
+        'Calibrated_Model': {
+            'recall': recall,
+            'precision': precision,
+            'f1_score': f1
+        }
+    }
+
+    # log param metric
+    for name, metrics_dict in all_metrics.items():
+        scenery_metrics.log_metric(f'{name}_f1_score', metrics_dict.get('f1_score'))
+        scenery_metrics.log_metric(f'{name}_roc_auc', metrics_dict.get('roc_auc'))
+    
+    os.makedirs(scenery_metrics.path, exist_ok=True)
+    metrics_file_path = scenery_metrics.path + "/models_metrics.json" 
+    with open(metrics_file_path, 'w') as f:
+        json.dump(all_metrics, f, indent=4)
+
+
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 def evaluate_model(
     test_data_path: Input[Dataset],
@@ -474,7 +702,7 @@ def evaluate_model(
     best_model = joblib.load(f"{best_model_path.path}/tuned_model.joblib")
 
     # Preparar los datos de test
-    cat_features = ['payment_type','employment_status','housing_status','device_os']
+    cat_features = data_test.select_dtypes(include=['object']).columns.tolist()
     target = 'fraud_bool'
 
     encoder_features_test = encoder.transform(data_test[cat_features])
@@ -587,6 +815,7 @@ def pipeline(
     val_size: float = 0.1,
     test_size: float = 0.1,
     n_trials: int = 50,
+    human_hit_rate: float = 0.80,
     model_display_name: str = 'fraud-detection-model'
 ):
     load_process_task = load_process_data(
@@ -619,6 +848,13 @@ def pipeline(
         best_model_path=tuning_model_task.outputs['tuned_model_path'],
         encode_path=train_models_task.outputs['encode_path'],
     )   
+
+    calibrate_model_task = calibrate_model(
+        val_data_path=split_data_task.outputs['val_data_path'],
+        best_model_path=tuning_model_task.outputs['tuned_model_path'],
+        encoder_path=train_models_task.outputs['encode_path'],
+        human_hit_rate = human_hit_rate,
+    )
 
     upload_model_task = upload_model_to_vertex(
         best_model_path=evaluate_model_task.outputs['final_tuned_model_path'],
