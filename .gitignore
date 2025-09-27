@@ -4,6 +4,10 @@ venv/
 env/
 Data/Base.csv
 Notebooks/EDA-data.ipynb
+Notebooks/images/
+Notebooks/test_pipeline.ipynb
+Notebooks/.ipynb_checkpoints/
+Notebooks/Artifacts
 
 terraform/.terraform/
 terraform/terraform.tfstate

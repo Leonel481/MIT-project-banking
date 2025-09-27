@@ -21,7 +21,7 @@ LGBMClassifier:
 
 XGBClassifier:
   objective: binary:logistic # Objetivo de clasificación binaria
-  max_depth: [3, 10] # Profundidad máxima del árbol
+  max_depth: [3, 6] # Profundidad máxima del árbol
   learning_rate: [0.01, 0.3] # Tasa de aprendizaje
   n_estimators: [50, 300] # Número de árboles, cantidad de boosting rounds (estimadores)
   subsample: [0.5, 1.0] # Submuestreo de filas de cada árbol, ayuda a prevenir overfitting
@@ -29,3 +29,4 @@ XGBClassifier:
   reg_alpha: [0.0, 1.0] # Regularización L1 (lasso)
   reg_lambda: [0.0, 1.0] # Regularización L2 (ridge), penaliza pesos grandes
   gamma: [0.0, 1.0] # Mínima reducción de pérdida para hacer una partición adicional en un nodo del árbol
+  eval_metric: aucpr # Métrica de evaluación para el modelo

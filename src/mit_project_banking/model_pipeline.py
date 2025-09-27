@@ -58,8 +58,16 @@ def split_data(
     data = pd.read_csv(f"{processed_data_path.path}/processed_data.csv")
 
     # Diividir los datos en train, validation y test
-    train, val_test = train_test_split(data, test_size = (1 - train_size), random_state=42, stratify=data['fraud_bool'])
-    val, test = train_test_split(val_test, test_size = (test_size / (val_size + test_size)), random_state=42, stratify=val_test['fraud_bool'])
+    train, val_test = train_test_split(
+                                data, test_size = (1 - train_size), 
+                                random_state=42, 
+                                stratify=data['fraud_bool']
+                                )
+    val, test = train_test_split(
+                                val_test, test_size = (test_size / (val_size + test_size)), 
+                                random_state=42, 
+                                stratify=val_test['fraud_bool']
+                                )
 
     # Guardar los conjuntos de datos
     os.makedirs(train_data_path.path, exist_ok=True)
@@ -97,7 +105,7 @@ def train_models(
     data = pd.read_csv(f'{train_data_path.path}/train_data.csv')
 
     # Crear encoder, separar características y etiqueta
-    cat_features = ['payment_type','employment_status','housing_status','device_os']
+    cat_features = data.select_dtypes(include=['object']).columns.tolist()
     target = 'fraud_bool'
 
     encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
@@ -232,7 +240,7 @@ def tuning_model(
     import optuna
     import yaml
     import json
-    from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, roc_curve
+    from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, roc_curve, precision_recall_curve
     from xgboost import XGBClassifier
     from lightgbm import LGBMClassifier  
     from sklearn.ensemble import RandomForestClassifier
@@ -246,7 +254,7 @@ def tuning_model(
     encoder = joblib.load(f"{encoder_path.path}/encoder.joblib")
 
     # Preparar los datos de validación
-    cat_features = ['payment_type','employment_status','housing_status','device_os']
+    cat_features = data_train.select_dtypes(include=['object']).columns.tolist()
     target = 'fraud_bool'
 
     encoder_features_train = encoder.transform(data_train[cat_features])
@@ -336,21 +344,26 @@ def tuning_model(
         print(params)
 
         if best_model_name == 'RandomForestClassifier':
-            model.fit(X_train, y_train)
+            model.fit(X_train, y_train
+                      )
         elif best_model_name == 'LGBMClassifier':
             model.fit(X_train, y_train,
                       eval_set=[(X_val, y_val)],
-                      verbose=False,
-                      early_stopping_rounds=10)
+                      )
         elif best_model_name == 'XGBClassifier':
             model.fit(X_train, y_train,
                       eval_set=[(X_val, y_val)],
-                      verbose=False)
+                      verbose=False
+                      )
         
-        y_pred = model.predict(X_val)
-        f1 = f1_score(y_val, y_pred)
+        y_pred_proba_trial = model.predict_proba(X_val)[:, 1]
+        precision_trial, recall_trial, _ = precision_recall_curve(y_val, y_pred_proba_trial)
+        
+        f1_scores_trial = 2 * (precision_trial * recall_trial) / (precision_trial + recall_trial + 1e-9)
+        
+        best_f1_trial = f1_scores_trial.max()
 
-        return f1
+        return best_f1_trial
 
     # Ejecutar la optimización de hiperparámetros
     study = optuna.create_study(direction='maximize')
@@ -381,24 +394,25 @@ def tuning_model(
     else:
         raise ValueError(f"Modelo no soportado: {best_model_name}")
     
-    # Umbrales
-    # y_pred_proba = tuned_model.predict_proba(X_val)[:, 1]
-    # thresholds = np.arange(0.0, 0.7, 0.9)
-    # f1_scores = []
-    # for threshold in thresholds:
-    #     y_pred = (y_pred_proba >= threshold).astype(int)
-    #     f1 = f1_score(y_val, y_pred)
-    #     f1_scores.append(f1)
+    # Validacion del modelo ajustado
 
-    # best_threshold = thresholds[np.argmax(f1_scores)]
-    # print(f"Mejor umbral para maximizar F1-score: {best_threshold}")
+    y_pred_proba = tuned_model.predict_proba(X_val)[:, 1]    
+    precision_final, recall_final, thresholds_final = precision_recall_curve(y_val, y_pred_proba)
 
+    f1_scores = 2 * (precision_final * recall_final) / (precision_final + recall_final + 1e-9)
+
+    best_index = np.argmax(f1_scores)
+
+    if best_index == len(thresholds_final):
+         optimal_threshold = thresholds_final[-1] # Último umbral
+    else:
+         optimal_threshold = thresholds_final[best_index]
 
     # Metricas del modelo ajustado
     # log the confusion matrix
     labels = ['No Fraude', 'Fraude']
 
-    y_pred_best = tuned_model.predict(X_val)
+    y_pred_best = (y_pred_proba >= optimal_threshold).astype(int)
     cm = confusion_matrix(y_val, y_pred_best)
     confusion_matrix_data = cm.tolist()
 
@@ -408,7 +422,6 @@ def tuning_model(
     )
 
     # log roc auc
-    y_pred_proba = tuned_model.predict_proba(X_val)[:, 1]
     fpr, tpr, thresholds = roc_curve(y_val, y_pred_proba)
 
     N_points = 200
@@ -429,6 +442,7 @@ def tuning_model(
     tuned_model_path.metadata['model'] = best_model_name
     tuned_model_path.metadata['F1-score'] = f1_score(y_val, y_pred_best)
     tuned_model_path.metadata['ROC-AUC'] = roc_auc_score(y_val, y_pred_best)
+    tuned_model_path.metadata['Optimal_Threshold_F1'] = float(optimal_threshold)
 
     # Guardar el modelo ajustado
     os.makedirs(tuned_model_path.path, exist_ok=True)
