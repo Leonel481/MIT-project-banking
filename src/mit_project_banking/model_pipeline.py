@@ -587,6 +587,7 @@ def calibrate_model(
         TN_auto = Total_Legitimos - legit_in_review - FP_auto
 
         confusion_matrix_data = [[TN_auto, legit_in_review, FP_auto],
+                                 [0,0,0],
                                  [FN_auto, frauds_in_review, TP_auto]]
         
         frauds_caught_by_review = h * frauds_in_review
