@@ -631,7 +631,7 @@ def calibrate_model(
     
     # Metricas del modelo ajustado con la calibracion de la funcion de costo
     # log the confusion matrix
-    labels = ['No Fraude', 'Fraude']
+    labels = ['Auto-Approve', 'Review', 'Auto-Decline']
 
     # y_pred_best = (y_pred_proba >= optimal_threshold).astype(int)
     cm, recall, precision, f1 = analyze_cost_function(results, total_samples=None, human_hit_rate=human_hit_rate)
