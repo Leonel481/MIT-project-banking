@@ -245,6 +245,8 @@ def tuning_model(
     from lightgbm import LGBMClassifier  
     from sklearn.ensemble import RandomForestClassifier
     import gcsfs
+    import lightgbm as lgb
+    from sklearn.model_selection import StratifiedKFold
 
     # Cargar los datos de validación
     data_train = pd.read_csv(f'{train_data_path.path}/train_data.csv')
@@ -297,7 +299,7 @@ def tuning_model(
     best_model_name = best_model[0]
 
     # Definir hiperparámetros para ajustar
-    def objective(trial):
+    def objective(trial, X: pd.DataFrame, y: pd.Series):
 
         param_type = {
             'n_estimators': 'int', 'max_depth': 'int', 'min_samples_split': 'int',
@@ -330,44 +332,52 @@ def tuning_model(
         if best_model_name in ['LGBMClassifier', 'XGBClassifier']:
             params['scale_pos_weight'] = scale_pos_weight
         
-        # Crear la instancia del modelo dinámicamente
-        if best_model_name == 'RandomForestClassifier':
-            model = RandomForestClassifier(**params)
-        elif best_model_name == 'LGBMClassifier':
-            model = LGBMClassifier(**params)
-        elif best_model_name == 'XGBClassifier':
-            model = XGBClassifier(**params)
-        else:
-            raise ValueError(f"Modelo no soportado para tuning: {best_model_name}")
+        # validacion cruzada estratificada
 
-        # Condicional para fit()
-        print(params)
+        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+        f1_scores = []
 
-        if best_model_name == 'RandomForestClassifier':
-            model.fit(X_train, y_train
-                      )
-        elif best_model_name == 'LGBMClassifier':
-            model.fit(X_train, y_train,
-                      eval_set=[(X_val, y_val)],
-                      )
-        elif best_model_name == 'XGBClassifier':
-            model.fit(X_train, y_train,
-                      eval_set=[(X_val, y_val)],
-                      verbose=False
-                      )
+        for train_index, val_index in skf.split(X, y):
+            X_train_fold, X_val_fold = X.iloc[train_index], X.iloc[val_index]
+            y_train_fold, y_val_fold = y.iloc[train_index], y.iloc[val_index]
         
-        y_pred_proba_trial = model.predict_proba(X_val)[:, 1]
-        precision_trial, recall_trial, _ = precision_recall_curve(y_val, y_pred_proba_trial)
-        
-        f1_scores_trial = 2 * (precision_trial * recall_trial) / (precision_trial + recall_trial + 1e-9)
-        
-        best_f1_trial = f1_scores_trial.max()
+            # Crear la instancia del modelo dinámicamente
+            if best_model_name == 'RandomForestClassifier':
+                model = RandomForestClassifier(**params, random_state=42)
+            elif best_model_name == 'LGBMClassifier':
+                model = LGBMClassifier(**params, random_state=42, verbose=-1)
+            elif best_model_name == 'XGBClassifier':
+                model = XGBClassifier(**params, random_state=42, verbose=0, use_label_encoder=False)
+            else:
+                raise ValueError(f"Modelo no soportado para tuning: {best_model_name}")
 
-        return best_f1_trial
+            if best_model_name == 'RandomForestClassifier':
+                model.fit(X_train_fold, y_train_fold)
+            elif best_model_name == 'LGBMClassifier':
+                model.fit(X_train_fold, y_train_fold,
+                            eval_set=[(X_val_fold, y_val_fold)],
+                            )
+            elif best_model_name == 'XGBClassifier':
+                model.fit(X_train_fold, y_train_fold,
+                            eval_set=[(X_val_fold, y_val_fold)],
+                            verbose=False,
+                            )
+
+            # Evaluar el modelo  
+            y_pred_proba_trial = model.predict_proba(X_val)[:, 1]
+            precision_trial, recall_trial, _ = precision_recall_curve(y_val, y_pred_proba_trial)
+            
+            f1_scores_fold = 2 * (precision_trial * recall_trial) / (precision_trial + recall_trial + 1e-9)
+            
+            best_f1 = np.max(f1_scores_fold)
+            f1_scores.append(best_f1)
+
+        return np.mean(f1_scores)
 
     # Ejecutar la optimización de hiperparámetros
     study = optuna.create_study(direction='maximize')
-    study.optimize(objective, n_trials=n_trials)
+    func = lambda trial: objective(trial, X_train, y_train)
+    study.optimize(func, n_trials=n_trials)
 
     # Entrenar el modelo con los mejores hiperparámetros
     best_params = study.best_trial.params
@@ -377,7 +387,7 @@ def tuning_model(
         tuned_model = RandomForestClassifier(**best_params, random_state=42)
         tuned_model.fit(X_train, y_train)
     elif best_model_name == 'LGBMClassifier':
-        tuned_model = LGBMClassifier(**best_params, random_state=42)
+        tuned_model = LGBMClassifier(**best_params, random_state=42, verboose=-1)
         tuned_model.fit(
             X_train, y_train,
             eval_set=[(X_val, y_val)],
@@ -385,7 +395,7 @@ def tuning_model(
             early_stopping_rounds=10
         )
     elif best_model_name == 'XGBClassifier':
-        tuned_model = XGBClassifier(**best_params, random_state=42, use_label_encoder=False)
+        tuned_model = XGBClassifier(**best_params, random_state=42, verbose=0, use_label_encoder=False)
         tuned_model.fit(
             X_train, y_train,
             eval_set=[(X_val, y_val)],
@@ -401,12 +411,12 @@ def tuning_model(
 
     f1_scores = 2 * (precision_final * recall_final) / (precision_final + recall_final + 1e-9)
 
-    best_index = np.argmax(f1_scores)
+    best_threshold_index = np.argmax(f1_scores)
 
-    if best_index == len(thresholds_final):
+    if best_threshold_index == len(thresholds_final):
          optimal_threshold = thresholds_final[-1] # Último umbral
     else:
-         optimal_threshold = thresholds_final[best_index]
+         optimal_threshold = thresholds_final[best_threshold_index]
 
     # Metricas del modelo ajustado
     # log the confusion matrix
@@ -440,9 +450,11 @@ def tuning_model(
 
     # Metadata del modelo ajustado
     tuned_model_path.metadata['model'] = best_model_name
-    tuned_model_path.metadata['F1-score'] = f1_score(y_val, y_pred_best)
     tuned_model_path.metadata['ROC-AUC'] = roc_auc_score(y_val, y_pred_best)
-    tuned_model_path.metadata['Optimal_Threshold_F1'] = float(optimal_threshold)
+    tuned_model_path.metadata['Optimal_Threshold'] = float(optimal_threshold)
+    tuned_model_path.metadata['F1-score'] = f1_score(y_val, y_pred_best)
+    tuned_model_path.metadata['Recall'] = recall_score(y_val, y_pred_best)
+    tuned_model_path.metadata['Precision'] = precision_score(y_val, y_pred_best)
 
     # Guardar el modelo ajustado
     os.makedirs(tuned_model_path.path, exist_ok=True)
@@ -462,7 +474,7 @@ def calibrate_model(
     import pandas as pd
     import numpy as np
     from typing import Optional, Dict, Union
-    from sklearn.metrics import roc_curve
+    from sklearn.metrics import roc_curve, roc_auc_score
     import joblib
     import json
     import os
@@ -630,9 +642,13 @@ def calibrate_model(
                                  h = human_hit_rate,
                                  max_reviews=2000)
     
+    # Treholds óptimos
+    t_low_opt = results['t_low']
+    t_high_opt = results['t_high']
+
     # Metricas del modelo ajustado con la calibracion de la funcion de costo
     # log the confusion matrix
-    labels = ['Auto-Approve', 'Review', 'Auto-Decline']
+    labels = ['No Fraude', 'Observado', 'Fraude']
 
     # y_pred_best = (y_pred_proba >= optimal_threshold).astype(int)
     cm, recall, precision, f1 = analyze_cost_function(results, total_samples=None, human_hit_rate=human_hit_rate)
@@ -663,7 +679,10 @@ def calibrate_model(
         'Calibrated_Model': {
             'recall': recall,
             'precision': precision,
-            'f1_score': f1
+            'f1_score': f1,
+            'roc_auc': roc_auc_score(y_val, y_pred_proba),
+            't_low_opt': t_low_opt,
+            't_high_opt': t_high_opt
         }
     }
 
@@ -671,6 +690,10 @@ def calibrate_model(
     for name, metrics_dict in all_metrics.items():
         scenery_metrics.log_metric(f'{name}_f1_score', metrics_dict.get('f1_score'))
         scenery_metrics.log_metric(f'{name}_roc_auc', metrics_dict.get('roc_auc'))
+        scenery_metrics.log_metric(f'{name}_recall', metrics_dict.get('recall'))
+        scenery_metrics.log_metric(f'{name}_precision', metrics_dict.get('precision'))
+        scenery_metrics.log_metric(f't_low_opt', metrics_dict.get('t_low_opt'))
+        scenery_metrics.log_metric(f't_high_opt', metrics_dict.get('t_high_opt'))
     
     os.makedirs(scenery_metrics.path, exist_ok=True)
     metrics_file_path = scenery_metrics.path + "/models_metrics.json" 
@@ -683,6 +706,7 @@ def evaluate_model(
     test_data_path: Input[Dataset],
     best_model_path: Input[Model],
     encode_path: Input[Model],
+    scenery_metrics: Input[Metrics],
     final_tuned_model_path: Output[Model],
     best_model_metrics: Output[ClassificationMetrics],
     best_model_metrics_path: Output[Metrics],
@@ -714,18 +738,83 @@ def evaluate_model(
 
     # Evaluar el modelo
     y_pred = best_model.predict(X_test)
-    # f1_score = f1_score(y_test, y_pred)
+    y_pred_proba = best_model.predict_proba(X_test)[:, 1]
 
     # log the confusion matrix
-    labels = ['No Fraude', 'Fraude']
+    labels = ['No Fraude', 'Observado', 'Fraude']
 
-    y_pred_best = best_model.predict(X_test)
-    cm = confusion_matrix(y_test, y_pred_best)
-    confusion_matrix_data = cm.tolist()
+    # Load optimal treshold json
+    metrics_file = os.path.join(scenery_metrics.path, os.listdir(scenery_metrics.path)[0])
+    with open(metrics_file, "r") as f:
+        opt_tresholds = json.load(f)
 
+    def results_model(y_test, y_pred_proba, opt_tresholds, human_hit_rate = 0.8):
+
+        t_low_opt = opt_tresholds['t_low_opt']
+        t_high_opt = opt_tresholds['t_high_opt']
+
+        n = len(y_test)
+
+        real_fraud = (y_test == 1)
+        real_no_fraud = (y_test == 0)
+        total_frauds = real_fraud.sum()
+
+        fraud_mask = (y_pred_proba >= t_high_opt)
+        review_mask = (y_pred_proba < t_high_opt) & (y_pred_proba > t_low_opt)
+        no_fraud_mask = (y_pred_proba <= t_low_opt)
+
+        TP_auto = np.sum(fraud_mask & real_fraud)
+        FP_auto = np.sum(fraud_mask & real_no_fraud)
+        FN_auto = np.sum(no_fraud_mask & real_fraud)
+        TN_auto = np.sum(no_fraud_mask & real_no_fraud)
+
+        frauds_in_review = np.sum(review_mask & real_fraud)
+        legit_in_review = np.sum(review_mask & real_no_fraud)
+        review_count = np.sum(review_mask)
+
+        # Fraudes que el humano atrapa
+        frauds_caught_by_review = human_hit_rate * frauds_in_review
+        # Fraudes que el humano pierde (se convierten en FN final)
+        frauds_missed_by_review = (1 - human_hit_rate) * frauds_in_review
+        # Legítimos que el humano rechaza (se convierten en FP final)
+        no_frauds_declined_by_review = (1 - h) * legit_in_review
+
+        FN_total = FN_auto + frauds_missed_by_review
+        FP_total = FP_auto + no_frauds_declined_by_review
+        TP_total = TP_auto + frauds_caught_by_review
+        Frauds_total = TP_total + FN_total + frauds_in_review
+
+        recall_final = TP_total / (Frauds_total + 1e-9)
+        precision_final = TP_total / (TP_total + FP_total + 1e-9)
+        f1_final = 2 * (precision_final * recall_final) / (precision_final + recall_final + 1e-9)
+
+        confusion_matrix_data = [
+            [TN_auto, legit_in_review, FP_auto], # Real No Fraude
+            [0,0,0],
+            [FN_auto, frauds_in_review, TP_auto]  # Real Fraude
+        ]
+
+        results = {
+            "recall": recall_final,
+            "precision": precision_final,
+            "f1_score": f1_final,
+            "review_fraction": review_count / n
+        }
+
+        return confusion_matrix_data, results
+
+
+    cm , results = results_model(
+        y_test.values, 
+        y_pred_proba,
+        opt_tresholds,
+        human_hit_rate = 0.8
+    )
+
+    # log the confusion matrix
     best_model_metrics.log_confusion_matrix(
         categories=labels,
-        matrix=confusion_matrix_data
+        matrix=cm
     )
 
     # Model
@@ -734,7 +823,6 @@ def evaluate_model(
     joblib.dump(best_model, final_tuned_model_path)
 
     # log roc auc
-    y_pred_proba = best_model.predict_proba(X_test)[:, 1]
     fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
 
     N_points = 200
@@ -752,21 +840,17 @@ def evaluate_model(
     ) 
 
     # log metric
-    model_metrics = {
-            'accuracy': accuracy_score(y_test, y_pred),
-            'precision': precision_score(y_test, y_pred),
-            'recall': recall_score(y_test, y_pred),
-            'f1_score': f1_score(y_test, y_pred),
-            'roc_auc': roc_auc_score(y_test, y_pred)
-        }
+    results['roc_auc'] = roc_auc_score(y_test, y_pred_proba)
+    results['t_low_opt'] = opt_tresholds['t_low_opt']
+    results['t_high_opt'] = opt_tresholds['t_high_opt']
     
-    for metric, value in model_metrics.items():
+    for metric, value in results.items():
         best_model_metrics_path.log_metric(metric, value)
 
     os.makedirs(best_model_metrics_path.path, exist_ok=True)
     metrics_file_path = best_model_metrics_path.path + "/model_metrics.json"
     with open(metrics_file_path, 'w') as f:
-        json.dump(model_metrics, f, indent=4)
+        json.dump(results, f, indent=4)
 
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 def upload_model_to_vertex(
@@ -842,13 +926,7 @@ def pipeline(
         metrics_path=train_models_task.outputs['metrics_path'],
         params_config_path=params_config_path,
         n_trials=n_trials,
-    )
-    
-    evaluate_model_task = evaluate_model(
-        test_data_path=split_data_task.outputs['test_data_path'],
-        best_model_path=tuning_model_task.outputs['tuned_model_path'],
-        encode_path=train_models_task.outputs['encode_path'],
-    )   
+    )  
 
     calibrate_model_task = calibrate_model(
         val_data_path=split_data_task.outputs['val_data_path'],
@@ -857,6 +935,13 @@ def pipeline(
         human_hit_rate = human_hit_rate,
     )
 
+    evaluate_model_task = evaluate_model(
+            test_data_path=split_data_task.outputs['test_data_path'],
+            best_model_path=tuning_model_task.outputs['tuned_model_path'],
+            encode_path=train_models_task.outputs['encode_path'],
+            scenery_metrics=calibrate_model_task.outputs['scenery_metrics'],
+        )
+     
     upload_model_task = upload_model_to_vertex(
         best_model_path=evaluate_model_task.outputs['final_tuned_model_path'],
         best_model_metrics_path=evaluate_model_task.outputs['best_model_metrics_path'],
