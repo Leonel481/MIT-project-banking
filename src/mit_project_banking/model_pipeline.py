@@ -974,7 +974,7 @@ if __name__ == '__main__':
             'test_size': 0.1,
             'n_trials': 10,
         },
-        # enable_caching=False
+        enable_caching=False
     )
 
     job.run()
