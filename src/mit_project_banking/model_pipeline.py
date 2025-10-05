@@ -451,11 +451,11 @@ def tuning_model(
 
     # Metadata del modelo ajustado
     tuned_model_path.metadata['model'] = best_model_name
-    tuned_model_path.metadata['ROC-AUC'] = roc_auc_score(y_val, y_pred)
+    tuned_model_path.metadata['ROC-AUC'] = roc_auc_score(y_val, y_pred_proba)
     tuned_model_path.metadata['Optimal_Threshold'] = float(optimal_threshold)
-    tuned_model_path.metadata['F1-score'] = f1_score(y_val, y_pred)
-    tuned_model_path.metadata['Recall'] = recall_score(y_val, y_pred)
-    tuned_model_path.metadata['Precision'] = precision_score(y_val, y_pred)
+    tuned_model_path.metadata['F1-score'] = f1_score(y_val, y_pred_best)
+    tuned_model_path.metadata['Recall'] = recall_score(y_val, y_pred_best)
+    tuned_model_path.metadata['Precision'] = precision_score(y_val, y_pred_best)
 
     # Guardar el modelo ajustado
     os.makedirs(tuned_model_path.path, exist_ok=True)
