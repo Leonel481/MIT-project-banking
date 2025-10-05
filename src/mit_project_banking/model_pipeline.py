@@ -406,6 +406,7 @@ def tuning_model(
     
     # Validacion del modelo ajustado
 
+    y_pred = tuned_model.predict(X_val)
     y_pred_proba = tuned_model.predict_proba(X_val)[:, 1]    
     precision_final, recall_final, thresholds_final = precision_recall_curve(y_val, y_pred_proba)
 
@@ -450,11 +451,11 @@ def tuning_model(
 
     # Metadata del modelo ajustado
     tuned_model_path.metadata['model'] = best_model_name
-    tuned_model_path.metadata['ROC-AUC'] = roc_auc_score(y_val, y_pred_best)
+    tuned_model_path.metadata['ROC-AUC'] = roc_auc_score(y_val, y_pred)
     tuned_model_path.metadata['Optimal_Threshold'] = float(optimal_threshold)
-    tuned_model_path.metadata['F1-score'] = f1_score(y_val, y_pred_best)
-    tuned_model_path.metadata['Recall'] = recall_score(y_val, y_pred_best)
-    tuned_model_path.metadata['Precision'] = precision_score(y_val, y_pred_best)
+    tuned_model_path.metadata['F1-score'] = f1_score(y_val, y_pred)
+    tuned_model_path.metadata['Recall'] = recall_score(y_val, y_pred)
+    tuned_model_path.metadata['Precision'] = precision_score(y_val, y_pred)
 
     # Guardar el modelo ajustado
     os.makedirs(tuned_model_path.path, exist_ok=True)
@@ -675,19 +676,17 @@ def calibrate_model(
         threshold=thresholds.tolist()
     )
 
-    all_metrics = {
-        'Calibrated_Model': {
+    calibrated_metrics = {
             'recall': recall,
             'precision': precision,
             'f1_score': f1,
             'roc_auc': roc_auc_score(y_val, y_pred_proba),
             't_low_opt': t_low_opt,
             't_high_opt': t_high_opt
-        }
     }
 
     # log param metric
-    for name, metrics_dict in all_metrics.items():
+    for name, metrics_dict in calibrated_metrics.items():
         scenery_metrics.log_metric(f'{name}_f1_score', metrics_dict.get('f1_score'))
         scenery_metrics.log_metric(f'{name}_roc_auc', metrics_dict.get('roc_auc'))
         scenery_metrics.log_metric(f'{name}_recall', metrics_dict.get('recall'))
@@ -696,9 +695,9 @@ def calibrate_model(
         scenery_metrics.log_metric(f't_high_opt', metrics_dict.get('t_high_opt'))
     
     os.makedirs(scenery_metrics.path, exist_ok=True)
-    metrics_file_path = scenery_metrics.path + "/models_metrics.json" 
+    metrics_file_path = scenery_metrics.path + "/scenery_metrics.json" 
     with open(metrics_file_path, 'w') as f:
-        json.dump(all_metrics, f, indent=4)
+        json.dump(calibrated_metrics, f, indent=4)
 
 
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
