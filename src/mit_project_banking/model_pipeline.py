@@ -771,7 +771,7 @@ def evaluate_model(
         # Fraudes que el humano pierde (se convierten en FN final)
         frauds_missed_by_review = (1 - human_hit_rate) * frauds_in_review
         # Legítimos que el humano rechaza (se convierten en FP final)
-        no_frauds_declined_by_review = (1 - h) * legit_in_review
+        no_frauds_declined_by_review = (1 - human_hit_rate) * legit_in_review
 
         FN_total = FN_auto + frauds_missed_by_review
         FP_total = FP_auto + no_frauds_declined_by_review
