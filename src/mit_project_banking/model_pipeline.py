@@ -686,13 +686,8 @@ def calibrate_model(
     }
 
     # log param metric
-    for name, metrics_dict in calibrated_metrics.items():
-        scenery_metrics.log_metric(f'{name}_f1_score', metrics_dict.get('f1_score'))
-        scenery_metrics.log_metric(f'{name}_roc_auc', metrics_dict.get('roc_auc'))
-        scenery_metrics.log_metric(f'{name}_recall', metrics_dict.get('recall'))
-        scenery_metrics.log_metric(f'{name}_precision', metrics_dict.get('precision'))
-        scenery_metrics.log_metric(f't_low_opt', metrics_dict.get('t_low_opt'))
-        scenery_metrics.log_metric(f't_high_opt', metrics_dict.get('t_high_opt'))
+    for metric_name, metric_value in calibrated_metrics.items():
+        scenery_metrics.log_metric(f'Calibrated_{metric_name}', metric_value)
     
     os.makedirs(scenery_metrics.path, exist_ok=True)
     metrics_file_path = scenery_metrics.path + "/scenery_metrics.json" 
