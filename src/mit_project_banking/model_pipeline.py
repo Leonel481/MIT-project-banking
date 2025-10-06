@@ -704,7 +704,7 @@ def evaluate_model(
     test_data_path: Input[Dataset],
     best_model_path: Input[Model],
     encode_path: Input[Model],
-    # scenery_metrics: Input[Metrics],
+    scenery_metrics: Input[Metrics],
     final_tuned_model_path: Output[Model],
     evaluate_metrics: Output[ClassificationMetrics],
     evaluate_metrics_path: Output[Metrics],
@@ -743,14 +743,14 @@ def evaluate_model(
     labels = ['No Fraude', 'Observado', 'Fraude']
 
     # Load optimal treshold json
-    # metrics_file = os.path.join(scenery_metrics.path, os.listdir(scenery_metrics.path)[0])
-    # with open(metrics_file, "r") as f:
-    #     opt_tresholds = json.load(f)
+    metrics_file = os.path.join(scenery_metrics.path, os.listdir(scenery_metrics.path)[0])
+    with open(metrics_file, "r") as f:
+        opt_tresholds = json.load(f)
 
-    opt_tresholds = {
-        't_low_opt': 0.039,
-        't_high_opt': 0.05
-    }
+    # opt_tresholds = {
+    #     't_low_opt': 0.039,
+    #     't_high_opt': 0.05
+    # }
 
     # def results_model(y_test, y_pred_proba, opt_tresholds, human_hit_rate = 0.8):
 
@@ -851,7 +851,6 @@ def evaluate_model(
         "recall": 123,
         "precision": 125,
         "f1_score": 12,
-        # "review_fraction": review_count / n
     }
 
 
@@ -955,7 +954,7 @@ def pipeline(
             test_data_path=split_data_task.outputs['test_data_path'],
             best_model_path=tuning_model_task.outputs['tuned_model_path'],
             encode_path=train_models_task.outputs['encode_path'],
-            # scenery_metrics=calibrate_model_task.outputs['scenery_metrics'],
+            scenery_metrics=calibrate_model_task.outputs['scenery_metrics'],
             human_hit_rate=human_hit_rate,
         )
      
