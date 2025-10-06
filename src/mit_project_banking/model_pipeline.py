@@ -743,9 +743,14 @@ def evaluate_model(
     labels = ['No Fraude', 'Observado', 'Fraude']
 
     # Load optimal treshold json
-    metrics_file = os.path.join(scenery_metrics.path, os.listdir(scenery_metrics.path)[0])
-    with open(metrics_file, "r") as f:
-        opt_tresholds = json.load(f)
+    # metrics_file = os.path.join(scenery_metrics.path, os.listdir(scenery_metrics.path)[0])
+    # with open(metrics_file, "r") as f:
+    #     opt_tresholds = json.load(f)
+
+    opt_tresholds = {
+        't_low_opt': 0.039230769230769236,
+        't_high_opt': 0.05
+    }
 
     def results_model(y_test, y_pred_proba, opt_tresholds, human_hit_rate = 0.8):
 
