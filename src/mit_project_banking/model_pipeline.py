@@ -747,11 +747,6 @@ def evaluate_model(
     with open(metrics_file, "r") as f:
         opt_tresholds = json.load(f)
 
-    # opt_tresholds = {
-    #     't_low_opt': 0.039,
-    #     't_high_opt': 0.05
-    # }
-
     def results_model(y_test, y_pred_proba, opt_tresholds, human_hit_rate = 0.8):
 
         t_low_opt = opt_tresholds['t_low_opt']
@@ -815,10 +810,6 @@ def evaluate_model(
         human_hit_rate = human_hit_rate
     )
 
-    # cm = [[29285, 193, 63],
-    #       [0,0,0],
-    #       [39, 128, 395]]
-
     # log the confusion matrix
     evaluate_metrics.log_confusion_matrix(
         categories=labels,
@@ -846,13 +837,6 @@ def evaluate_model(
         tpr=tpr.tolist(),
         threshold=thresholds.tolist()
     ) 
-
-    # results = {
-    #     "recall": 123,
-    #     "precision": 125,
-    #     "f1_score": 12,
-    # }
-
 
     # log metric
     results['roc_auc'] = float(roc_auc_score(y_test, y_pred_proba))
