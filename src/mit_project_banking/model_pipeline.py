@@ -814,8 +814,8 @@ def evaluate_model(
 
     # Model
     os.makedirs(final_tuned_model_path.path, exist_ok=True)
-    final_tuned_model_path = final_tuned_model_path.path + "/final_tuned_model.joblib"
-    joblib.dump(best_model, final_tuned_model_path)
+    final_model_file_path = final_tuned_model_path.path + "/final_tuned_model.joblib"
+    joblib.dump(best_model, final_model_file_path)
 
     # log roc auc
     fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
