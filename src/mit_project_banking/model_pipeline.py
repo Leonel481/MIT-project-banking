@@ -752,72 +752,72 @@ def evaluate_model(
     #     't_high_opt': 0.05
     # }
 
-    # def results_model(y_test, y_pred_proba, opt_tresholds, human_hit_rate = 0.8):
+    def results_model(y_test, y_pred_proba, opt_tresholds, human_hit_rate = 0.8):
 
-    #     t_low_opt = opt_tresholds['t_low_opt']
-    #     t_high_opt = opt_tresholds['t_high_opt']
+        t_low_opt = opt_tresholds['t_low_opt']
+        t_high_opt = opt_tresholds['t_high_opt']
 
-    #     n = len(y_test)
+        n = len(y_test)
 
-    #     real_fraud = (y_test == 1)
-    #     real_no_fraud = (y_test == 0)
-    #     total_frauds = real_fraud.sum()
+        real_fraud = (y_test == 1)
+        real_no_fraud = (y_test == 0)
+        total_frauds = real_fraud.sum()
 
-    #     fraud_mask = (y_pred_proba >= t_high_opt)
-    #     review_mask = (y_pred_proba < t_high_opt) & (y_pred_proba > t_low_opt)
-    #     no_fraud_mask = (y_pred_proba <= t_low_opt)
+        fraud_mask = (y_pred_proba >= t_high_opt)
+        review_mask = (y_pred_proba < t_high_opt) & (y_pred_proba > t_low_opt)
+        no_fraud_mask = (y_pred_proba <= t_low_opt)
 
-    #     TP_auto = np.sum(fraud_mask & real_fraud)
-    #     FP_auto = np.sum(fraud_mask & real_no_fraud)
-    #     FN_auto = np.sum(no_fraud_mask & real_fraud)
-    #     TN_auto = np.sum(no_fraud_mask & real_no_fraud)
+        TP_auto = int(np.sum(fraud_mask & real_fraud))
+        FP_auto = int(np.sum(fraud_mask & real_no_fraud))
+        FN_auto = int(np.sum(no_fraud_mask & real_fraud))
+        TN_auto = int(np.sum(no_fraud_mask & real_no_fraud))
 
-    #     frauds_in_review = np.sum(review_mask & real_fraud)
-    #     legit_in_review = np.sum(review_mask & real_no_fraud)
-    #     review_count = np.sum(review_mask)
+        frauds_in_review = int(np.sum(review_mask & real_fraud))
+        legit_in_review = int(np.sum(review_mask & real_no_fraud))
+        review_count = int(np.sum(review_mask))
 
-    #     # Fraudes que el humano atrapa
-    #     frauds_caught_by_review = human_hit_rate * frauds_in_review
-    #     # Fraudes que el humano pierde (se convierten en FN final)
-    #     frauds_missed_by_review = (1 - human_hit_rate) * frauds_in_review
-    #     # Legítimos que el humano rechaza (se convierten en FP final)
-    #     no_frauds_declined_by_review = (1 - human_hit_rate) * legit_in_review
+        # Fraudes que el humano atrapa
+        frauds_caught_by_review = human_hit_rate * frauds_in_review
+        # Fraudes que el humano pierde (se convierten en FN final)
+        frauds_missed_by_review = (1 - human_hit_rate) * frauds_in_review
+        # Legítimos que el humano rechaza (se convierten en FP final)
+        no_frauds_declined_by_review = (1 - human_hit_rate) * legit_in_review
 
-    #     FN_total = FN_auto + frauds_missed_by_review
-    #     FP_total = FP_auto + no_frauds_declined_by_review
-    #     TP_total = TP_auto + frauds_caught_by_review
-    #     Frauds_total = TP_total + FN_total + frauds_in_review
+        FN_total = FN_auto + frauds_missed_by_review
+        FP_total = FP_auto + no_frauds_declined_by_review
+        TP_total = TP_auto + frauds_caught_by_review
+        Frauds_total = TP_total + FN_total + frauds_in_review
 
-    #     recall_final = TP_total / (Frauds_total + 1e-9)
-    #     precision_final = TP_total / (TP_total + FP_total + 1e-9)
-    #     f1_final = 2 * (precision_final * recall_final) / (precision_final + recall_final + 1e-9)
+        recall_final = float(TP_total / (Frauds_total + 1e-9))
+        precision_final = float(TP_total / (TP_total + FP_total + 1e-9))
+        f1_final = float(2 * (precision_final * recall_final) / (precision_final + recall_final + 1e-9))
 
-    #     confusion_matrix_data = [
-    #         [TN_auto, legit_in_review, FP_auto], # Real No Fraude
-    #         [0,0,0],
-    #         [FN_auto, frauds_in_review, TP_auto]  # Real Fraude
-    #     ]
+        confusion_matrix_data = [
+            [TN_auto, legit_in_review, FP_auto], # Real No Fraude
+            [0,0,0],
+            [FN_auto, frauds_in_review, TP_auto]  # Real Fraude
+        ]
 
-    #     results = {
-    #         "recall": recall_final,
-    #         "precision": precision_final,
-    #         "f1_score": f1_final,
-    #         # "review_fraction": review_count / n
-    #     }
+        results = {
+            "recall": recall_final,
+            "precision": precision_final,
+            "f1_score": f1_final,
+            "review_fraction": review_count / n
+        }
 
-    #     return confusion_matrix_data, results
+        return confusion_matrix_data, results
 
 
-    # cm , results = results_model(
-    #     y_test.values, 
-    #     y_pred_proba,
-    #     opt_tresholds,
-    #     human_hit_rate = human_hit_rate
-    # )
+    cm , results = results_model(
+        y_test, 
+        y_pred_proba,
+        opt_tresholds,
+        human_hit_rate = human_hit_rate
+    )
 
-    cm = [[29285, 193, 63],
-          [0,0,0],
-          [39, 128, 395]]
+    # cm = [[29285, 193, 63],
+    #       [0,0,0],
+    #       [39, 128, 395]]
 
     # log the confusion matrix
     evaluate_metrics.log_confusion_matrix(
@@ -847,11 +847,11 @@ def evaluate_model(
         threshold=thresholds.tolist()
     ) 
 
-    results = {
-        "recall": 123,
-        "precision": 125,
-        "f1_score": 12,
-    }
+    # results = {
+    #     "recall": 123,
+    #     "precision": 125,
+    #     "f1_score": 12,
+    # }
 
 
     # log metric
