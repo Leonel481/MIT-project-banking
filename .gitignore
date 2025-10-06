@@ -9,6 +9,8 @@ Notebooks/test_pipeline.ipynb
 Notebooks/.ipynb_checkpoints/
 Notebooks/Artifacts
 
+**/.ipynb_checkpoints
+
 terraform/.terraform/
 terraform/terraform.tfstate
 terraform/terraform.tfstate.backup

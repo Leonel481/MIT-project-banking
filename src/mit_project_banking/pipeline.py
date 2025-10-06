@@ -18,7 +18,7 @@ def split_data(
     import os
 
     # Cargar los datos procesados
-    data = pd.read_csv(f"{processed_data_path.path}/processed_data.csv")
+    data = pd.read_csv(processed_data_path)
 
     # Diividir los datos en train, validation y test
     train, val_test = train_test_split(
@@ -910,37 +910,7 @@ def pipeline(
 
 if __name__ == '__main__':
 
-    PROJECT_ID = 'projectstylus01'
-    REGION = 'us-central1'
-    SERVICE_ACCOUNT = 'workbench-sa@projectstylus01.iam.gserviceaccount.com'
-    GCS_BUCKET = 'gs://mit-project-vertex-ai-artifacts'
-    NAME_CONFIG = 'config.yaml'
-    PIPELINE_ROOT = f'{GCS_BUCKET}/pipeline_root/'
-
-    aiplatform.init(project=PROJECT_ID, location=REGION, service_account=SERVICE_ACCOUNT, staging_bucket=GCS_BUCKET)
-
-    INPUT_DATA_URI = f'{GCS_BUCKET}/data/Base.csv'
-    PARAMS_CONFIG_PATH = f'{GCS_BUCKET}/config/{NAME_CONFIG}'
-
     compiler.Compiler().compile(
         pipeline_func=pipeline,
         package_path='mit_project_banking_pipeline.yaml'
     )
-
-    job = aiplatform.PipelineJob(
-        display_name='mit-project-banking-pipeline-training',
-        template_path='mit_project_banking_pipeline.yaml',
-        pipeline_root=PIPELINE_ROOT,
-        parameter_values={
-            'raw_data_path': INPUT_DATA_URI,
-            'params_config_path': PARAMS_CONFIG_PATH,
-            'model_display_name': 'fraud-detection-model',
-            'train_size': 0.8,
-            'val_size': 0.1,
-            'test_size': 0.1,
-            'n_trials': 10,
-        },
-        # enable_caching=False
-    )
-
-    job.run()
