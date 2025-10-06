@@ -680,9 +680,9 @@ def calibrate_model(
             'recall': recall,
             'precision': precision,
             'f1_score': f1,
-            'roc_auc': roc_auc_score(y_val, y_pred_proba),
-            't_low_opt': t_low_opt,
-            't_high_opt': t_high_opt
+            # 'roc_auc': roc_auc_score(y_val, y_pred_proba),
+            # 't_low_opt': t_low_opt,
+            # 't_high_opt': t_high_opt
     }
 
     # log param metric
