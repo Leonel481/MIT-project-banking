@@ -802,7 +802,7 @@ def evaluate_model(
             "recall": recall_final,
             "precision": precision_final,
             "f1_score": f1_final,
-            "review_fraction": review_count / n
+            # "review_fraction": review_count / n
         }
 
         return confusion_matrix_data, results
@@ -844,12 +844,12 @@ def evaluate_model(
     ) 
 
     # log metric
-    results['roc_auc'] = roc_auc_score(y_test, y_pred_proba)
+    results['roc_auc'] = float(roc_auc_score(y_test, y_pred_proba))
     results['t_low_opt'] = opt_tresholds['t_low_opt']
     results['t_high_opt'] = opt_tresholds['t_high_opt']
     
-    for metric, value in results.items():
-        best_model_metrics_path.log_metric(metric, value)
+    for metric_name, metric_value in results.items():
+        best_model_metrics_path.log_metric(f'Calibrated_{metric_name}', metric_value)
 
     os.makedirs(best_model_metrics_path.path, exist_ok=True)
     metrics_file_path = best_model_metrics_path.path + "/model_metrics.json"
