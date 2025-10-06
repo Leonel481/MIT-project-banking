@@ -29,4 +29,3 @@ XGBClassifier:
   reg_alpha: [0.0, 1.0] # Regularización L1 (lasso)
   reg_lambda: [0.0, 1.0] # Regularización L2 (ridge), penaliza pesos grandes
   gamma: [0.0, 1.0] # Mínima reducción de pérdida para hacer una partición adicional en un nodo del árbol
-  eval_metric: aucpr # Métrica de evaluación para el modelo
