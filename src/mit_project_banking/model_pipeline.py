@@ -704,6 +704,7 @@ def evaluate_model(
     final_tuned_model_path: Output[Model],
     best_model_metrics: Output[ClassificationMetrics],
     best_model_metrics_path: Output[Metrics],
+    human_hit_rate: float = 0.80
 ):
 
     import pandas as pd
@@ -802,7 +803,7 @@ def evaluate_model(
         y_test.values, 
         y_pred_proba,
         opt_tresholds,
-        human_hit_rate = 0.8
+        human_hit_rate = human_hit_rate
     )
 
     # log the confusion matrix
@@ -934,6 +935,7 @@ def pipeline(
             best_model_path=tuning_model_task.outputs['tuned_model_path'],
             encode_path=train_models_task.outputs['encode_path'],
             scenery_metrics=calibrate_model_task.outputs['scenery_metrics'],
+            human_hit_rate=human_hit_rate,
         )
      
     upload_model_task = upload_model_to_vertex(
@@ -974,7 +976,7 @@ if __name__ == '__main__':
             'test_size': 0.1,
             'n_trials': 10,
         },
-        enable_caching=False
+        # enable_caching=False
     )
 
     job.run()
