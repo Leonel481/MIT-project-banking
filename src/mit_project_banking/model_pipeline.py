@@ -685,6 +685,10 @@ def calibrate_model(
             # 't_high_opt': t_high_opt
     }
 
+    calibrated_metrics['roc_auc'] = float(roc_auc_score(y_val, y_pred_proba))
+    calibrated_metrics['t_low_opt'] = float(t_low_opt)
+    calibrated_metrics['t_high_opt'] = float(t_high_opt)
+
     # log param metric
     for metric_name, metric_value in calibrated_metrics.items():
         scenery_metrics.log_metric(f'Calibrated_{metric_name}', metric_value)
