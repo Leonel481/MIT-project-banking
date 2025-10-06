@@ -852,7 +852,7 @@ def upload_model_to_vertex(
     print(f'Modelo subido a Vertex AI con ID: {artifact.resource_name}')
 
 @dsl.pipeline(
-    name='mit-project-banking-pipeline-training',
+    name='fraud-model-pipeline-experiments',
     description='Pipeline entrenamiento de modelos para el proyecto de detección de fraude bancario'
 )
 def pipeline(
@@ -912,5 +912,5 @@ if __name__ == '__main__':
 
     compiler.Compiler().compile(
         pipeline_func=pipeline,
-        package_path='mit_project_banking_pipeline.yaml'
+        package_path='fraud_model_pipeline_experiments.yaml'
     )
