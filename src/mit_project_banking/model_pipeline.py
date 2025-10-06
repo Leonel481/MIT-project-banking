@@ -704,7 +704,7 @@ def evaluate_model(
     test_data_path: Input[Dataset],
     best_model_path: Input[Model],
     encode_path: Input[Model],
-    scenery_metrics: Input[Metrics],
+    # scenery_metrics: Input[Metrics],
     final_tuned_model_path: Output[Model],
     best_model_metrics: Output[ClassificationMetrics],
     best_model_metrics_path: Output[Metrics],
@@ -943,7 +943,7 @@ def pipeline(
             test_data_path=split_data_task.outputs['test_data_path'],
             best_model_path=tuning_model_task.outputs['tuned_model_path'],
             encode_path=train_models_task.outputs['encode_path'],
-            scenery_metrics=calibrate_model_task.outputs['scenery_metrics'],
+            # scenery_metrics=calibrate_model_task.outputs['scenery_metrics'],
             human_hit_rate=human_hit_rate,
         )
      
