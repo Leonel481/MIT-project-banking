@@ -135,7 +135,7 @@ def pipeline(
     model_resource_name: str,
 ):
     data_process_task = data_process(
-        raw_data_path = input_data_path,
+        input_data_path = input_data_path,
     )
 
     split_data_task = model_inference(
@@ -166,7 +166,7 @@ if __name__ == '__main__':
         template_path='mit_project_banking_pipeline.yaml',
         pipeline_root=PIPELINE_ROOT,
         parameter_values={
-            'raw_data_path': INPUT_DATA_URI,
+            'input_data_path': INPUT_DATA_URI,
             'model_resource_name' : 'projects/435304534790/locations/us-central1/models/7156882813403267072'
         },
         # enable_caching=False
