@@ -2,6 +2,10 @@ import google.cloud.aiplatform as aiplatform
 import kfp
 from kfp import compiler, dsl
 from kfp.dsl import Artifact, Dataset, Input, Metrics, Model, Output, component, ClassificationMetrics, Markdown
+from typing import NamedTuple
+
+class UploadModelOutputs(NamedTuple):
+    model_resource_name: str
 
 @component(base_image='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest')
 def split_data(
@@ -818,14 +822,55 @@ def evaluate_model(
 def upload_model_to_vertex(
     best_model_path: Input[Model],
     best_model_metrics_path: Input[Metrics],
+    encode_path: Input[Model],
     model_display_name: str,
     experiment_name: str = 'fraud-detection-experiment'
-):
+) :
+    
     import google.cloud.aiplatform as aiplatform
     import datetime
+    import shutil
     import json
+    import joblib
     import os
+    from pathlib import Path
 
+    # Dirtectorio temporal
+    TEMP_DIR = Path("/gcp/model_combined_artifact")
+    TEMP_DIR.mkdir(exist_ok=True)
+
+    # Copiar el encoder
+    encoder_file = Path(encode_path.path) / "encoder.joblib"
+    shutil.copy(encoder_file, TEMP_DIR / "encoder.joblib")
+    
+    # Copiar el modelo
+    model_source_dir = Path(best_model_path.path)
+    model_files = [f for f in model_source_dir.iterdir() if f.is_file()]
+    
+    if model_files:
+        model_file_path = model_files[0]
+        # Copiamos el archivo del modelo, nombrándolo consistentemente
+        shutil.copy(model_file_path, TEMP_DIR / "final_tuned_model.joblib")
+        print(f"Modelo copiado: {model_file_path.name} -> final_tuned_model.joblib")
+    else:
+        # En un pipeline real, esto debería lanzar una excepción
+        print("Error: No se encontró el archivo del modelo dentro del directorio de entrada.")
+
+    # Copiar las metricas
+    metrics_source_dir = Path(best_model_metrics_path.path)
+    metrics_files = [f for f in metrics_source_dir.iterdir() if f.is_file()] 
+
+    if metrics_files:
+        # Copiamos el archivo de métricas, nombrándolo consistentemente
+        shutil.copy(metrics_files[0], TEMP_DIR / "model_metrics.json")
+        print("Métricas copiadas y renombradas a model_metrics.json")
+        
+        # Cargamos las métricas desde la ubicación temporal para loguearlas
+        with open(TEMP_DIR / "model_metrics.json", "r") as f:
+            metrics = json.load(f)
+    else:
+        print("Advertencia: No se encontró el archivo de métricas.")
+        
     # Inicializar Vertex AI
     aiplatform.init()
 
@@ -841,7 +886,8 @@ def upload_model_to_vertex(
     # Subir el modelo a Vertex AI
     artifact = aiplatform.Model.upload(
         display_name=model_display_name,
-        artifact_uri=best_model_path.path.rsplit('/', 1)[0],
+        artifact_uri=str(TEMP_DIR),
+        # artifact_uri=best_model_path.path.rsplit('/', 1)[0],
         serving_container_image_uri='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest'
     )
   
@@ -850,6 +896,10 @@ def upload_model_to_vertex(
     aiplatform.end_run()
 
     print(f'Modelo subido a Vertex AI con ID: {artifact.resource_name}')
+
+    model_name = artifact.resource_name
+
+    return (model_name)
 
 @dsl.pipeline(
     name='fraud-model-pipeline-experiments',
@@ -905,6 +955,7 @@ def pipeline(
     upload_model_task = upload_model_to_vertex(
         best_model_path=evaluate_model_task.outputs['final_tuned_model_path'],
         best_model_metrics_path=evaluate_model_task.outputs['evaluate_metrics_path'],
+        encode_path=train_models_task.outputs['encode_path'],
         model_display_name=model_display_name
     )
 
