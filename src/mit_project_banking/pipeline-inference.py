@@ -162,8 +162,8 @@ if __name__ == '__main__':
     )
 
     job = aiplatform.PipelineJob(
-        display_name='mit-project-banking-pipeline-training',
-        template_path='mit_project_banking_pipeline.yaml',
+        display_name='mit-project-banking-pipeline-inference',
+        template_path='mit_project_banking_pipeline_inference.yaml',
         pipeline_root=PIPELINE_ROOT,
         parameter_values={
             'input_data_path': INPUT_DATA_URI,
