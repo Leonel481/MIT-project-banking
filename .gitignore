@@ -3,6 +3,7 @@
 venv/
 env/
 Data/Base.csv
+Data/**
 Notebooks/EDA-data.ipynb
 Notebooks/images/
 Notebooks/test_pipeline.ipynb
