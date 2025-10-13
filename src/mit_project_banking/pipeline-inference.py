@@ -53,6 +53,9 @@ def model_inference(
     from pathlib import Path
     import json
     import joblib
+    import gcsfs
+
+    fs = gcsfs.GCSFileSystem()
 
     # Artefactos del modelo final      
     temp_download_dir = Path("/gcs_downloads")
@@ -62,16 +65,42 @@ def model_inference(
     LOCAL_ENCODER_PATH = temp_download_dir / "encoder.joblib"
     LOCAL_METRICS_PATH = temp_download_dir / "model_metrics.json"
 
+    # try:
+    #     model = aiplatform.Model(model_name=model_resource_name)
+    #     # Descarga todos los artefactos del modelo registrado a la carpeta local
+    #     model.dowload(artifact_directory=str(temp_download_dir))
+    #     print("Artefactos descargados exitosamente con Model.download_artifacts().")
+    # except Exception as e:
+    #     print(f"Error al descargar artefactos del modelo registrado: {e}")
+    #     # Es crucial relanzar la excepción para que el componente falle
+    #     raise
+    
     try:
         model = aiplatform.Model(model_resource_name)
-        # Descarga todos los artefactos del modelo registrado a la carpeta local
-        model.download_artifacts(artifact_directory=str(temp_download_dir))
-        print("Artefactos descargados exitosamente con Model.download_artifacts().")
+        model_artifact_uri = model.uri # URI CORRECTO del modelo registrado
+        
+        GCS_MODEL_FILE = f"{model_artifact_uri}/final_model.joblib"
+        GCS_ENCODER_FILE = f"{model_artifact_uri}/encoder.joblib"
+        GCS_METRICS_FILE = f"{model_artifact_uri}/model_metrics.json"
+
+        # Descarga del Modelo
+        fs.get(GCS_MODEL_FILE, str(LOCAL_MODEL_PATH))
+        # Descarga del Encoder
+        fs.get(GCS_ENCODER_FILE, str(LOCAL_ENCODER_PATH))
+        # Descarga de las Métricas
+        fs.get(GCS_METRICS_FILE, str(LOCAL_METRICS_PATH))
+        
+        print("Artefactos descargados exitosamente usando GCS URI y fs.get().")
     except Exception as e:
         print(f"Error al descargar artefactos del modelo registrado: {e}")
         # Es crucial relanzar la excepción para que el componente falle
         raise
-    
+
+    # ** DIAGNÓSTICO: Verificar la existencia de los archivos descargados **
+    downloaded_files = os.listdir(temp_download_dir)
+    print(f"Archivos descargados en {temp_download_dir}: {downloaded_files}")
+
+
     # Cargar los datos procesados
     data = pd.read_csv(f"{processed_data.path}/processed_data.csv")
 
