@@ -51,14 +51,8 @@ def model_inference(
     import os
     from google.cloud import aiplatform
     from pathlib import Path
-    import gcsfs
     import json
     import joblib
-
-    fs = gcsfs.GCSFileSystem()
-
-    # Cargar los datos procesados
-    data = pd.read_csv(f"{processed_data.path}/processed_data.csv")
 
     # Artefactos del modelo final      
     temp_download_dir = Path("/gcs_downloads")
@@ -77,8 +71,10 @@ def model_inference(
         print(f"Error al descargar artefactos del modelo registrado: {e}")
         # Es crucial relanzar la excepción para que el componente falle
         raise
-
     
+    # Cargar los datos procesados
+    data = pd.read_csv(f"{processed_data.path}/processed_data.csv")
+
     # Cargar el Modelo (joblib)
     tuned_model = joblib.load(LOCAL_MODEL_PATH)
     print("Modelo cargado.")
@@ -87,12 +83,20 @@ def model_inference(
     encoder = joblib.load(LOCAL_ENCODER_PATH)
     print("Encoder cargado.")
     
+    cat_features = data.select_dtypes(include=['object']).columns.tolist()
+
+    encoder_features_test = encoder.transform(data[cat_features])
+    data_encode = pd.DataFrame(encoder_features_test, columns=encoder.get_feature_names_out(cat_features))
+    data_for_model = pd.concat([data.drop(columns=cat_features), data_encode], axis=1)
+
+    data_for_model = data_for_model.drop(columns = ['DATE', 'fraud_bool'])
+
     # Cargar las Métricas y extraer el threshold (json)
     with open(LOCAL_METRICS_PATH, "r") as f:
         metrics = json.load(f)
 
     # Realizar inferencias
-    y_pred_proba = tuned_model.predict_proba(data)[:, 1]
+    y_pred_proba = tuned_model.predict_proba(data_for_model)[:, 1]
     
     t_low_opt = metrics['t_low_opt']
     t_high_opt = metrics['t_high_opt']
@@ -103,6 +107,8 @@ def model_inference(
     data.loc[y_pred_proba >= t_high_opt, 'category'] = "FRAUDE"
 
     results_df = pd.DataFrame({
+        'date': data['DATE'],
+        'income': data['income'],
         'proba': data['proba'],
         'category': data['category'],
         't_high_opt': t_high_opt,
@@ -143,7 +149,7 @@ if __name__ == '__main__':
 
     aiplatform.init(project=PROJECT_ID, location=REGION, service_account=SERVICE_ACCOUNT, staging_bucket=GCS_BUCKET)
 
-    INPUT_DATA_URI = f'{GCS_BUCKET}/data_inference/data_inference1.csv'
+    INPUT_DATA_URI = f'{GCS_BUCKET}/data_inference/synthetic_fraud_data.csv'
 
     compiler.Compiler().compile(
         pipeline_func=pipeline,
