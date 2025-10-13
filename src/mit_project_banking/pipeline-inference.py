@@ -121,13 +121,13 @@ def model_inference(
     encoder = joblib.load(LOCAL_ENCODER_PATH)
     print("Encoder cargado.")
     
-    cat_features = data.select_dtypes(include=['object']).columns.tolist()
+    cat_features = encoder.feature_names_in_.tolist()
 
     encoder_features_test = encoder.transform(data[cat_features])
     data_encode = pd.DataFrame(encoder_features_test, columns=encoder.get_feature_names_out(cat_features))
     data_for_model = pd.concat([data.drop(columns=cat_features), data_encode], axis=1)
 
-    data_for_model = data_for_model.drop(columns = ['DATE', 'fraud_bool'])
+    data_for_model = data_for_model.drop(columns = ['DATE', 'fraud_bool'], errors='ignore')
 
     # Cargar las Métricas y extraer el threshold (json)
     with open(LOCAL_METRICS_PATH, "r") as f:
