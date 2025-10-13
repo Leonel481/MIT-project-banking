@@ -60,33 +60,22 @@ def model_inference(
     # Cargar los datos procesados
     data = pd.read_csv(f"{processed_data.path}/processed_data.csv")
 
-    # Artefactos del modelo final
-    temp_download_dir = '/gcs_downloads'
-    os.makedirs(temp_download_dir, exist_ok=True)
-
-    model_artifact_uri = aiplatform.Model(model_resource_name).uri
-        
+    # Artefactos del modelo final      
     temp_download_dir = Path("/gcs_downloads")
     temp_download_dir.mkdir(exist_ok=True)
 
-    GCS_MODEL_FILE = f"{model_artifact_uri}/final_tuned_model.joblib"
-    GCS_ENCODER_FILE = f"{model_artifact_uri}/encoder.joblib"
-    GCS_METRICS_FILE = f"{model_artifact_uri}/model_metrics.json"
-
-    LOCAL_MODEL_PATH = temp_download_dir / "final_tuned_model.joblib"
+    LOCAL_MODEL_PATH = temp_download_dir / "final_model.joblib"
     LOCAL_ENCODER_PATH = temp_download_dir / "encoder.joblib"
     LOCAL_METRICS_PATH = temp_download_dir / "model_metrics.json"
 
     try:
-        # Descarga del Modelo
-        fs.get(GCS_MODEL_FILE, str(LOCAL_MODEL_PATH))
-        # Descarga del Encoder
-        fs.get(GCS_ENCODER_FILE, str(LOCAL_ENCODER_PATH))
-        # Descarga de las Métricas
-        fs.get(GCS_METRICS_FILE, str(LOCAL_METRICS_PATH))
-        print("Artefactos descargados exitosamente.")
+        model = aiplatform.Model(model_resource_name)
+        # Descarga todos los artefactos del modelo registrado a la carpeta local
+        model.download_artifacts(artifact_directory=str(temp_download_dir))
+        print("Artefactos descargados exitosamente con Model.download_artifacts().")
     except Exception as e:
-        print(f"Error al descargar artefactos de GCS: {e}")
+        print(f"Error al descargar artefactos del modelo registrado: {e}")
+        # Es crucial relanzar la excepción para que el componente falle
         raise
 
     
