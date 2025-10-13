@@ -18,7 +18,7 @@ def data_process(
 
     # Definiendo variables nan y categoricas
     var_nan = ['prev_address_months_count','current_address_months_count','intended_balcon_amount',
-               'bank_months_count','session_length_in_minutes','device_distinct_emails_8w']
+            'bank_months_count','session_length_in_minutes','device_distinct_emails_8w']
 
     # Ingenieria de variables
     data[var_nan] = data[var_nan].replace(-1, np.nan).astype('float')
@@ -31,8 +31,17 @@ def data_process(
     data['log_days_since_request'] = np.log1p(data['days_since_request'])
     data['prev_bank_months_count'] = np.where(data['bank_months_count'] <=0, 0, 1)
     data['income_risk_score'] = data['income']*data['credit_risk_score']
+    data['rel_income_credit'] = data['income'] / data ['proposed_credit_limit']
+    data['age_at_account_opening'] = data['customer_age'] - (data['bank_months_count'] / 12)
+    data['credit_per_income'] = data['proposed_credit_limit'] / data['income']
+    data['zip_branch_ratio'] = data['zip_count_4w'] / (data['bank_branch_count_8w'] +1)
+    data['is_young_high_credit'] = np.where((data['customer_age'] < 30) & (data['proposed_credit_limit'] > 1700), 1, 0)
+    data['is_high_risk_low_income'] = np.where((data['credit_risk_score'] > 200) & (data['income'] < 0.3), 1, 0)
 
-    data = data.drop(columns = ['device_fraud_count','month','prev_address_months_count','intended_balcon_amount', 'source'])
+
+    data = data.drop(columns = ['device_fraud_count','month','prev_address_months_count',
+                                # 'intended_balcon_amount', 'source'
+                                ])
 
     # Guardar los datos procesados
     os.makedirs(processed_data.path, exist_ok=True)
