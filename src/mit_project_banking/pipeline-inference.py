@@ -167,7 +167,7 @@ if __name__ == '__main__':
         pipeline_root=PIPELINE_ROOT,
         parameter_values={
             'input_data_path': INPUT_DATA_URI,
-            'model_resource_name' : 'projects/435304534790/locations/us-central1/models/7156882813403267072'
+            'model_resource_name' : 'projects/435304534790/locations/us-central1/models/8550465423097724928'
         },
         # enable_caching=False
     )
