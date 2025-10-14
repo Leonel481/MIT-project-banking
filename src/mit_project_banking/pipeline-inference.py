@@ -151,8 +151,14 @@ def model_inference(
         'category': data['category'],
         'umbral_minimo_fraude': t_high_opt,
         'umbral_minimo_revision': t_low_opt,
-        'costo_FN': metrics['cost_FN'],
-        'costo_FP': metrics['cost_FP'],
+        'costo_FN': metrics['cost_fn'],
+        'costo_FP': metrics['cost_fp'],
+        'costo_review': metrics['cost_review'],
+        'ratio_acierto_humano': metrics['human_hit_rate'],
+        'f1_score': metrics['f1_score'],
+        'roc_auc': metrics['roc_auc'],
+        'precision': metrics['precision'],
+        'recall': metrics['recall'],
     })
 
     # Guardar las predicciones
