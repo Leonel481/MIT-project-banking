@@ -149,8 +149,10 @@ def model_inference(
         'income': data['income'],
         'proba': data['proba'],
         'category': data['category'],
-        't_high_opt': t_high_opt,
-        't_low_opt': t_low_opt
+        'umbral_minimo_fraude': t_high_opt,
+        'umbral_minimo_revision': t_low_opt,
+        'costo_FN': metrics['cost_FN'],
+        'costo_FP': metrics['cost_FP'],
     })
 
     # Guardar las predicciones
@@ -200,7 +202,7 @@ if __name__ == '__main__':
         pipeline_root=PIPELINE_ROOT,
         parameter_values={
             'input_data_path': INPUT_DATA_URI,
-            'model_resource_name' : 'projects/435304534790/locations/us-central1/models/8550465423097724928'
+            'model_resource_name' : 'projects/435304534790/locations/us-central1/models/2730688804628201472'
         },
         # enable_caching=False
     )
