@@ -204,7 +204,7 @@ if __name__ == '__main__':
             'input_data_path': INPUT_DATA_URI,
             'model_resource_name' : 'projects/435304534790/locations/us-central1/models/2730688804628201472'
         },
-        # enable_caching=False
+        enable_caching=False
     )
 
     job.run()
