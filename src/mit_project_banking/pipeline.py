@@ -437,6 +437,9 @@ def calibrate_model(
     encoder_path: Input[Model],
     scenery_metrics: Output[Metrics],
     tune_model_metrics: Output[ClassificationMetrics],
+    c_fn: float = 20000,
+    c_fp: float = 200,
+    c_review: float = 30,
     human_hit_rate: float = 0.80,
 ):
     import pandas as pd
@@ -606,9 +609,12 @@ def calibrate_model(
     t_high_grid = np.linspace(0.05, 0.5, 60)
 
     results = cost_function(y_val, y_pred_proba,
-                                 t_low_grid, t_high_grid,
-                                 h = human_hit_rate,
-                                 max_reviews=2000)
+                                t_low_grid, t_high_grid,
+                                c_fn = c_fn,
+                                c_fp = c_fp,
+                                c_review = c_review,
+                                h = human_hit_rate,
+                                max_reviews=2000)
     
     # Treholds óptimos
     t_low_opt = results['t_low']
@@ -647,14 +653,15 @@ def calibrate_model(
             'recall': recall,
             'precision': precision,
             'f1_score': f1,
-            # 'roc_auc': roc_auc_score(y_val, y_pred_proba),
-            # 't_low_opt': t_low_opt,
-            # 't_high_opt': t_high_opt
     }
 
     calibrated_metrics['roc_auc'] = float(roc_auc_score(y_val, y_pred_proba))
     calibrated_metrics['t_low_opt'] = float(t_low_opt)
     calibrated_metrics['t_high_opt'] = float(t_high_opt)
+    calibrated_metrics['cost_fn'] = float(c_fn)
+    calibrated_metrics['cost_fp'] = float(c_fp)
+    calibrated_metrics['cost_review'] = float(c_review)
+    calibrated_metrics['human_hit_rate'] = float(human_hit_rate)
 
     # log param metric
     for metric_name, metric_value in calibrated_metrics.items():
@@ -809,6 +816,10 @@ def evaluate_model(
     results['roc_auc'] = float(roc_auc_score(y_test, y_pred_proba))
     results['t_low_opt'] = opt_tresholds['t_low_opt']
     results['t_high_opt'] = opt_tresholds['t_high_opt']
+    results['human_hit_rate'] = human_hit_rate
+    results['cost_fn'] = opt_tresholds['cost_fn']
+    results['cost_fp'] = opt_tresholds['cost_fp']
+    results['cost_review'] = opt_tresholds['cost_review']
     
     for metric_name, metric_value in results.items():
         evaluate_metrics_path.log_metric(f'Calibrated_{metric_name}', metric_value)
@@ -905,6 +916,9 @@ def pipeline(
     val_size: float = 0.1,
     test_size: float = 0.1,
     n_trials: int = 50,
+    c_fn: float = 20000,
+    c_fp: float = 200,
+    c_review: float = 30,
     human_hit_rate: float = 0.80,
     model_display_name: str = 'fraud-detection-model'
 ):
@@ -934,6 +948,9 @@ def pipeline(
         val_data_path=split_data_task.outputs['val_data_path'],
         best_model_path=tuning_model_task.outputs['tuned_model_path'],
         encoder_path=train_models_task.outputs['encode_path'],
+        c_fn=c_fn,
+        c_fp=c_fp,
+        c_review=c_review,
         human_hit_rate = human_hit_rate,
     )
 
