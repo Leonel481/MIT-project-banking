@@ -1,0 +1,225 @@
+# PIPELINE DEFINITION
+# Name: mit-project-banking-pipeline-inference
+# Description: Pipeline inferencia de modelos para el proyecto de detección de fraude bancario
+# Inputs:
+#    input_data_path: str
+#    model_resource_name: str
+components:
+  comp-data-process:
+    executorLabel: exec-data-process
+    inputDefinitions:
+      parameters:
+        input_data_path:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        processed_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-model-inference:
+    executorLabel: exec-model-inference
+    inputDefinitions:
+      artifacts:
+        processed_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+      parameters:
+        model_resource_name:
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        predictions:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+deploymentSpec:
+  executors:
+    exec-data-process:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - data_process
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.5.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef data_process(\n    input_data_path: str,\n    processed_data:\
+          \ Output[Dataset],\n):\n    import pandas as pd\n    import numpy as np\n\
+          \    import os\n\n    # Cargar los datos\n    data = pd.read_csv(input_data_path)\n\
+          \n    # Definiendo variables nan y categoricas\n    var_nan = ['prev_address_months_count','current_address_months_count','intended_balcon_amount',\n\
+          \            'bank_months_count','session_length_in_minutes','device_distinct_emails_8w']\n\
+          \n    # Ingenieria de variables\n    data[var_nan] = data[var_nan].replace(-1,\
+          \ np.nan).astype('float')\n\n    data['prev_address_valid'] = np.where(data['prev_address_months_count']\
+          \ > 0,1,0)\n    data['velocity_6h'] = np.where(data['velocity_6h'] <= 0,data[\"\
+          velocity_6h\"].quantile(0.25),data[\"velocity_6h\"])\n    data['ratio_velocity_6h_24h']\
+          \ = data['velocity_6h']/data['velocity_24h']\n    data['ratio_velocity_24h_4w']\
+          \ = data['velocity_24h']/data['velocity_4w']\n    data['log_bank_branch_count_8w']\
+          \ = np.log1p(data['bank_branch_count_8w'])\n    data['log_days_since_request']\
+          \ = np.log1p(data['days_since_request'])\n    data['prev_bank_months_count']\
+          \ = np.where(data['bank_months_count'] <=0, 0, 1)\n    data['income_risk_score']\
+          \ = data['income']*data['credit_risk_score']\n    data['rel_income_credit']\
+          \ = data['income'] / data ['proposed_credit_limit']\n    data['age_at_account_opening']\
+          \ = data['customer_age'] - (data['bank_months_count'] / 12)\n    data['credit_per_income']\
+          \ = data['proposed_credit_limit'] / data['income']\n    data['zip_branch_ratio']\
+          \ = data['zip_count_4w'] / (data['bank_branch_count_8w'] +1)\n    data['is_young_high_credit']\
+          \ = np.where((data['customer_age'] < 30) & (data['proposed_credit_limit']\
+          \ > 1700), 1, 0)\n    data['is_high_risk_low_income'] = np.where((data['credit_risk_score']\
+          \ > 200) & (data['income'] < 0.3), 1, 0)\n\n\n    data = data.drop(columns\
+          \ = ['device_fraud_count','month','prev_address_months_count',\n       \
+          \                         # 'intended_balcon_amount', 'source'\n       \
+          \                         ])\n\n    # Guardar los datos procesados\n   \
+          \ os.makedirs(processed_data.path, exist_ok=True)\n    data_file_path =\
+          \ f\"{processed_data.path}/processed_data.csv\"\n    data.to_csv(data_file_path,\
+          \ index=False)\n    print(f\"Datos procesados guardados en: {data_file_path}\"\
+          )\n\n"
+        image: us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest
+    exec-model-inference:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - model_inference
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.5.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef model_inference(\n    model_resource_name: str,\n    processed_data:\
+          \ Input[Dataset],\n    predictions: Output[Dataset],\n):\n    import pandas\
+          \ as pd\n    import os\n    from google.cloud import aiplatform\n    from\
+          \ pathlib import Path\n    import json\n    import joblib\n    import gcsfs\n\
+          \n    fs = gcsfs.GCSFileSystem()\n\n    # Artefactos del modelo final  \
+          \    \n    temp_download_dir = Path(\"/gcs_downloads\")\n    temp_download_dir.mkdir(exist_ok=True)\n\
+          \n    LOCAL_MODEL_PATH = temp_download_dir / \"final_model.joblib\"\n  \
+          \  LOCAL_ENCODER_PATH = temp_download_dir / \"encoder.joblib\"\n    LOCAL_METRICS_PATH\
+          \ = temp_download_dir / \"model_metrics.json\"\n\n    # try:\n    #    \
+          \ model = aiplatform.Model(model_name=model_resource_name)\n    #     #\
+          \ Descarga todos los artefactos del modelo registrado a la carpeta local\n\
+          \    #     model.dowload(artifact_directory=str(temp_download_dir))\n  \
+          \  #     print(\"Artefactos descargados exitosamente con Model.download_artifacts().\"\
+          )\n    # except Exception as e:\n    #     print(f\"Error al descargar artefactos\
+          \ del modelo registrado: {e}\")\n    #     # Es crucial relanzar la excepci\xF3\
+          n para que el componente falle\n    #     raise\n\n    try:\n        model\
+          \ = aiplatform.Model(model_resource_name)\n        model_artifact_uri =\
+          \ model.uri # URI CORRECTO del modelo registrado\n\n        GCS_MODEL_FILE\
+          \ = f\"{model_artifact_uri}/final_model.joblib\"\n        GCS_ENCODER_FILE\
+          \ = f\"{model_artifact_uri}/encoder.joblib\"\n        GCS_METRICS_FILE =\
+          \ f\"{model_artifact_uri}/model_metrics.json\"\n\n        # Descarga del\
+          \ Modelo\n        fs.get(GCS_MODEL_FILE, str(LOCAL_MODEL_PATH))\n      \
+          \  # Descarga del Encoder\n        fs.get(GCS_ENCODER_FILE, str(LOCAL_ENCODER_PATH))\n\
+          \        # Descarga de las M\xE9tricas\n        fs.get(GCS_METRICS_FILE,\
+          \ str(LOCAL_METRICS_PATH))\n\n        print(\"Artefactos descargados exitosamente\
+          \ usando GCS URI y fs.get().\")\n    except Exception as e:\n        print(f\"\
+          Error al descargar artefactos del modelo registrado: {e}\")\n        # Es\
+          \ crucial relanzar la excepci\xF3n para que el componente falle\n      \
+          \  raise\n\n    # ** DIAGN\xD3STICO: Verificar la existencia de los archivos\
+          \ descargados **\n    downloaded_files = os.listdir(temp_download_dir)\n\
+          \    print(f\"Archivos descargados en {temp_download_dir}: {downloaded_files}\"\
+          )\n\n\n    # Cargar los datos procesados\n    data = pd.read_csv(f\"{processed_data.path}/processed_data.csv\"\
+          )\n\n    # Cargar el Modelo (joblib)\n    tuned_model = joblib.load(LOCAL_MODEL_PATH)\n\
+          \    print(\"Modelo cargado.\")\n\n    # Cargar el Encoder (joblib)\n  \
+          \  encoder = joblib.load(LOCAL_ENCODER_PATH)\n    print(\"Encoder cargado.\"\
+          )\n\n    cat_features = encoder.feature_names_in_.tolist()\n\n    encoder_features_test\
+          \ = encoder.transform(data[cat_features])\n    data_encode = pd.DataFrame(encoder_features_test,\
+          \ columns=encoder.get_feature_names_out(cat_features))\n    data_for_model\
+          \ = pd.concat([data.drop(columns=cat_features), data_encode], axis=1)\n\n\
+          \    data_for_model = data_for_model.drop(columns = ['DATE', 'fraud_bool'],\
+          \ errors='ignore')\n\n    # Cargar las M\xE9tricas y extraer el threshold\
+          \ (json)\n    with open(LOCAL_METRICS_PATH, \"r\") as f:\n        metrics\
+          \ = json.load(f)\n\n    # Realizar inferencias\n    y_pred_proba = tuned_model.predict_proba(data_for_model)[:,\
+          \ 1]\n\n    t_low_opt = metrics['t_low_opt']\n    t_high_opt = metrics['t_high_opt']\n\
+          \n    data['proba'] = y_pred_proba\n    data['category'] = \"NO_FRAUDE\"\
+          \ \n    data.loc[(y_pred_proba < t_high_opt) & (y_pred_proba >= t_low_opt),\
+          \ 'category'] = \"REVISI\xD3N\"\n    data.loc[y_pred_proba >= t_high_opt,\
+          \ 'category'] = \"FRAUDE\"\n\n    results_df = pd.DataFrame({\n        'date':\
+          \ data['DATE'],\n        'income': data['income'],\n        'proba': data['proba'],\n\
+          \        'category': data['category'],\n        'umbral_minimo_fraude':\
+          \ t_high_opt,\n        'umbral_minimo_revision': t_low_opt,\n        'costo_FN':\
+          \ metrics['cost_fn'],\n        'costo_FP': metrics['cost_fp'],\n       \
+          \ 'costo_review': metrics['cost_review'],\n        'ratio_acierto_humano':\
+          \ metrics['human_hit_rate'],\n        'f1_score': metrics['f1_score'],\n\
+          \        'roc_auc': metrics['roc_auc'],\n        'precision': metrics['precision'],\n\
+          \        'recall': metrics['recall'],\n    })\n\n    # Guardar las predicciones\n\
+          \    os.makedirs(predictions.path, exist_ok=True)\n    predictions_file_path\
+          \ = f\"{predictions.path}/predictions.csv\"\n    results_df.to_csv(predictions_file_path,\
+          \ index=False)\n    print(f\"Predicciones guardadas en: {predictions_file_path}\"\
+          )\n\n"
+        image: us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest
+pipelineInfo:
+  description: "Pipeline inferencia de modelos para el proyecto de detecci\xF3n de\
+    \ fraude bancario"
+  name: mit-project-banking-pipeline-inference
+root:
+  dag:
+    tasks:
+      data-process:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-data-process
+        inputs:
+          parameters:
+            input_data_path:
+              componentInputParameter: input_data_path
+        taskInfo:
+          name: data-process
+      model-inference:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-model-inference
+        dependentTasks:
+        - data-process
+        inputs:
+          artifacts:
+            processed_data:
+              taskOutputArtifact:
+                outputArtifactKey: processed_data
+                producerTask: data-process
+          parameters:
+            model_resource_name:
+              componentInputParameter: model_resource_name
+        taskInfo:
+          name: model-inference
+  inputDefinitions:
+    parameters:
+      input_data_path:
+        parameterType: STRING
+      model_resource_name:
+        parameterType: STRING
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.5.0
