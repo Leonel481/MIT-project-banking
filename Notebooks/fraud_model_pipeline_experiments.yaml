@@ -2,6 +2,9 @@
 # Name: fraud-model-pipeline-experiments
 # Description: Pipeline entrenamiento de modelos para el proyecto de detección de fraude bancario
 # Inputs:
+#    c_fn: float [Default: 20000.0]
+#    c_fp: float [Default: 200.0]
+#    c_review: float [Default: 30.0]
 #    human_hit_rate: float [Default: 0.8]
 #    model_display_name: str [Default: 'fraud-detection-model']
 #    n_trials: int [Default: 50.0]
@@ -36,6 +39,18 @@ components:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
       parameters:
+        c_fn:
+          defaultValue: 20000.0
+          isOptional: true
+          parameterType: NUMBER_DOUBLE
+        c_fp:
+          defaultValue: 200.0
+          isOptional: true
+          parameterType: NUMBER_DOUBLE
+        c_review:
+          defaultValue: 30.0
+          isOptional: true
+          parameterType: NUMBER_DOUBLE
         human_hit_rate:
           defaultValue: 0.8
           isOptional: true
@@ -196,6 +211,10 @@ components:
           artifactType:
             schemaTitle: system.Model
             schemaVersion: 0.0.1
+        encode_path:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
       parameters:
         experiment_name:
           defaultValue: fraud-detection-experiment
@@ -203,6 +222,12 @@ components:
           parameterType: STRING
         model_display_name:
           parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        artifacts:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
 deploymentSpec:
   executors:
     exec-calibrate-model:
@@ -233,7 +258,8 @@ deploymentSpec:
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef calibrate_model(\n    val_data_path: Input[Dataset],\n    best_model_path:\
           \ Input[Model],\n    encoder_path: Input[Model],\n    scenery_metrics: Output[Metrics],\n\
-          \    tune_model_metrics: Output[ClassificationMetrics],\n    human_hit_rate:\
+          \    tune_model_metrics: Output[ClassificationMetrics],\n    c_fn: float\
+          \ = 20000,\n    c_fp: float = 200,\n    c_review: float = 30,\n    human_hit_rate:\
           \ float = 0.80,\n):\n    import pandas as pd\n    import numpy as np\n \
           \   from typing import Optional, Dict, Union\n    from sklearn.metrics import\
           \ roc_curve, roc_auc_score\n    import joblib\n    import json\n    import\
@@ -333,8 +359,10 @@ deploymentSpec:
           \ = tuned_model.predict_proba(X_val)[:, 1]\n\n    t_low_grid = np.linspace(0.01,\
           \ 0.2, 40)\n    t_high_grid = np.linspace(0.05, 0.5, 60)\n\n    results\
           \ = cost_function(y_val, y_pred_proba,\n                               \
-          \  t_low_grid, t_high_grid,\n                                 h = human_hit_rate,\n\
-          \                                 max_reviews=2000)\n\n    # Treholds \xF3\
+          \ t_low_grid, t_high_grid,\n                                c_fn = c_fn,\n\
+          \                                c_fp = c_fp,\n                        \
+          \        c_review = c_review,\n                                h = human_hit_rate,\n\
+          \                                max_reviews=2000)\n\n    # Treholds \xF3\
           ptimos\n    t_low_opt = results['t_low']\n    t_high_opt = results['t_high']\n\
           \n    # Metricas del modelo ajustado con la calibracion de la funcion de\
           \ costo\n    # log the confusion matrix\n    labels = ['No Fraude', 'Observado',\
@@ -350,11 +378,12 @@ deploymentSpec:
           \ nan=0.0, posinf=1.0, neginf=0.0)\n\n    tune_model_metrics.log_roc_curve(\n\
           \        fpr=fpr.tolist(),\n        tpr=tpr.tolist(),\n        threshold=thresholds.tolist()\n\
           \    )\n\n    calibrated_metrics = {\n            'recall': recall,\n  \
-          \          'precision': precision,\n            'f1_score': f1,\n      \
-          \      # 'roc_auc': roc_auc_score(y_val, y_pred_proba),\n            # 't_low_opt':\
-          \ t_low_opt,\n            # 't_high_opt': t_high_opt\n    }\n\n    calibrated_metrics['roc_auc']\
-          \ = float(roc_auc_score(y_val, y_pred_proba))\n    calibrated_metrics['t_low_opt']\
-          \ = float(t_low_opt)\n    calibrated_metrics['t_high_opt'] = float(t_high_opt)\n\
+          \          'precision': precision,\n            'f1_score': f1,\n    }\n\
+          \n    calibrated_metrics['roc_auc'] = float(roc_auc_score(y_val, y_pred_proba))\n\
+          \    calibrated_metrics['t_low_opt'] = float(t_low_opt)\n    calibrated_metrics['t_high_opt']\
+          \ = float(t_high_opt)\n    calibrated_metrics['cost_fn'] = float(c_fn)\n\
+          \    calibrated_metrics['cost_fp'] = float(c_fp)\n    calibrated_metrics['cost_review']\
+          \ = float(c_review)\n    calibrated_metrics['human_hit_rate'] = float(human_hit_rate)\n\
           \n    # log param metric\n    for metric_name, metric_value in calibrated_metrics.items():\n\
           \        scenery_metrics.log_metric(f'Calibrated_{metric_name}', metric_value)\n\
           \n    os.makedirs(scenery_metrics.path, exist_ok=True)\n    metrics_file_path\
@@ -453,8 +482,11 @@ deploymentSpec:
           \        tpr=tpr.tolist(),\n        threshold=thresholds.tolist()\n    )\
           \ \n\n    # log metric\n    results['roc_auc'] = float(roc_auc_score(y_test,\
           \ y_pred_proba))\n    results['t_low_opt'] = opt_tresholds['t_low_opt']\n\
-          \    results['t_high_opt'] = opt_tresholds['t_high_opt']\n\n    for metric_name,\
-          \ metric_value in results.items():\n        evaluate_metrics_path.log_metric(f'Calibrated_{metric_name}',\
+          \    results['t_high_opt'] = opt_tresholds['t_high_opt']\n    results['human_hit_rate']\
+          \ = human_hit_rate\n    results['cost_fn'] = opt_tresholds['cost_fn']\n\
+          \    results['cost_fp'] = opt_tresholds['cost_fp']\n    results['cost_review']\
+          \ = opt_tresholds['cost_review']\n\n    for metric_name, metric_value in\
+          \ results.items():\n        evaluate_metrics_path.log_metric(f'Calibrated_{metric_name}',\
           \ metric_value)\n\n    os.makedirs(evaluate_metrics_path.path, exist_ok=True)\n\
           \    metrics_file_path = evaluate_metrics_path.path + \"/model_metrics.json\"\
           \n    with open(metrics_file_path, 'w') as f:\n        json.dump(results,\
@@ -781,17 +813,36 @@ deploymentSpec:
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef upload_model_to_vertex(\n    best_model_path: Input[Model],\n\
-          \    best_model_metrics_path: Input[Metrics],\n    model_display_name: str,\n\
-          \    experiment_name: str = 'fraud-detection-experiment'\n):\n    import\
-          \ google.cloud.aiplatform as aiplatform\n    import datetime\n    import\
-          \ json\n    import os\n\n    # Inicializar Vertex AI\n    aiplatform.init()\n\
-          \n    metrics_file = os.path.join(best_model_metrics_path.path, os.listdir(best_model_metrics_path.path)[0])\n\
-          \    with open(metrics_file, \"r\") as f:\n        metrics = json.load(f)\n\
-          \n    # Crear Experimento\n    aiplatform.init(experiment=experiment_name)\n\
+          \    best_model_metrics_path: Input[Metrics],\n    encode_path: Input[Model],\n\
+          \    artifacts: Output[Artifact],\n    model_display_name: str,\n    experiment_name:\
+          \ str = 'fraud-detection-experiment'\n) :\n\n    import google.cloud.aiplatform\
+          \ as aiplatform\n    import datetime\n    import shutil\n    import json\n\
+          \    import joblib\n    import os\n    from pathlib import Path\n\n\n  \
+          \  # Artifact\n    os.makedirs(artifacts.path, exist_ok = True)\n\n    #\
+          \ Cargar encoder al artifact path\n    encoder_src = Path(encode_path.path)\
+          \ / 'encoder.joblib'\n    encoder_artifact = Path(artifacts.path) / 'encoder.joblib'\n\
+          \    shutil.copy(encoder_src, encoder_artifact)\n\n    # Cargar Modelo\n\
+          \    model_source = Path(best_model_path.path)\n    model_files = [f for\
+          \ f in  model_source.iterdir() if f.is_file()]\n\n    if model_files:\n\
+          \        model_file_path = model_files[0]\n        model_artifact = Path(artifacts.path)\
+          \ / 'final_model.joblib'\n        shutil.copy(model_file_path, model_artifact)\n\
+          \        print(f'Modelo copiado: {model_file_path.name} -> final_tuned_model.joblib')\n\
+          \    else:\n        raise FileNotFoundError(\"Error: No se encontr\xF3 el\
+          \ archivo del modelo.\")\n\n    # Cargar metricas\n    metrics_source_dir\
+          \ = Path(best_model_metrics_path.path)\n    metrics_files = [f for f in\
+          \ metrics_source_dir.iterdir() if f.is_file()] \n\n    if metrics_files:\n\
+          \        metrics_file = metrics_files[0]\n        # Cargamos las m\xE9tricas\
+          \ para loguearlas en el experimento\n        with open(metrics_file, \"\
+          r\") as f:\n            metrics = json.load(f)\n        shutil.copy(metrics_file,\
+          \ Path(artifacts.path) / \"model_metrics.json\")\n    else:\n        print(\"\
+          Advertencia: No se encontr\xF3 el archivo de m\xE9tricas. Logueando m\xE9\
+          tricas vac\xEDas.\")\n        metrics = {}\n\n\n    # Inicializar Vertex\
+          \ AI\n    aiplatform.init()\n\n    # Crear Experimento\n    aiplatform.init(experiment=experiment_name)\n\
           \    run_name = f\"run-{model_display_name}-{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}\"\
           \n    run = aiplatform.start_run(run = run_name)\n\n    # Subir el modelo\
           \ a Vertex AI\n    artifact = aiplatform.Model.upload(\n        display_name=model_display_name,\n\
-          \        artifact_uri=best_model_path.path.rsplit('/', 1)[0],\n        serving_container_image_uri='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest'\n\
+          \        artifact_uri=artifacts.path,\n        # artifact_uri=best_model_path.path.rsplit('/',\
+          \ 1)[0],\n        serving_container_image_uri='us-central1-docker.pkg.dev/projectstylus01/vertex/mit-project-custom:latest'\n\
           \    )\n\n    aiplatform.log_metrics(metrics)\n\n    aiplatform.end_run()\n\
           \n    print(f'Modelo subido a Vertex AI con ID: {artifact.resource_name}')\n\
           \n"
@@ -857,6 +908,12 @@ root:
                 outputArtifactKey: val_data_path
                 producerTask: split-data
           parameters:
+            c_fn:
+              componentInputParameter: c_fn
+            c_fp:
+              componentInputParameter: c_fp
+            c_review:
+              componentInputParameter: c_review
             human_hit_rate:
               componentInputParameter: human_hit_rate
         taskInfo:
@@ -970,6 +1027,7 @@ root:
           name: comp-upload-model-to-vertex
         dependentTasks:
         - evaluate-model
+        - train-models
         inputs:
           artifacts:
             best_model_metrics_path:
@@ -980,6 +1038,10 @@ root:
               taskOutputArtifact:
                 outputArtifactKey: final_tuned_model_path
                 producerTask: evaluate-model
+            encode_path:
+              taskOutputArtifact:
+                outputArtifactKey: encode_path
+                producerTask: train-models
           parameters:
             model_display_name:
               componentInputParameter: model_display_name
@@ -987,6 +1049,18 @@ root:
           name: upload-model-to-vertex
   inputDefinitions:
     parameters:
+      c_fn:
+        defaultValue: 20000.0
+        isOptional: true
+        parameterType: NUMBER_DOUBLE
+      c_fp:
+        defaultValue: 200.0
+        isOptional: true
+        parameterType: NUMBER_DOUBLE
+      c_review:
+        defaultValue: 30.0
+        isOptional: true
+        parameterType: NUMBER_DOUBLE
       human_hit_rate:
         defaultValue: 0.8
         isOptional: true
